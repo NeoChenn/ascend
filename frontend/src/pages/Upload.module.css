@@ -1,0 +1,24 @@
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 3rem 2rem;
+}
+
+.container h1 {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.subtitle {
+  color: #a0a0a0;
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+.dropzone {
+  border: 2px dashed #3a3a3a;
+  border-radius: 12px;
+  padding: 4rem 2rem;
+  text-align: center;
+  color: #666;
+}
