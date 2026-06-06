@@ -21,3 +21,29 @@ class PoseResult(BaseModel):
     """
     frame_count: int
     landmarks_per_frame: list[dict[str, Landmark]]
+
+
+class FormCheck(BaseModel):
+    """
+    The result of a single form check (e.g. 'bottom extension').
+    passed: True if the athlete's form met the threshold for this check.
+    message: A human-readable explanation of the result.
+    measurement: The actual measured value (e.g. angle in degrees), or None
+                 for checks where a number isn't meaningful to surface.
+    """
+    name: str
+    passed: bool
+    message: str
+    measurement: float | None = None
+
+
+class FormFeedback(BaseModel):
+    """
+    All form feedback produced for a single video upload.
+    exercise: Which exercise was analysed (e.g. 'pull_up').
+    rep_count: How many complete reps were detected in the video.
+    checks: List of individual form checks, each with a pass/fail result.
+    """
+    exercise: str
+    rep_count: int
+    checks: list[FormCheck]

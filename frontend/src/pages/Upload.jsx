@@ -4,6 +4,7 @@ import { useState } from "react"
 export default function Upload() {
   const [selectedFile, setSelectedFile] = useState(null)
   const [filename, setFilename] = useState("")
+  const [feedback, setFeedback] = useState(null)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -15,6 +16,7 @@ export default function Upload() {
     })
     const data = await response.json()
     setFilename(data.filename)
+    setFeedback(data.feedback)
   }
 
   return (
@@ -31,6 +33,26 @@ export default function Upload() {
           {filename && <p>Uploaded: {filename}</p>}
         </form>
       </div>
+
+      {feedback && (
+        <div className={styles.feedback}>
+          <h2>Form Feedback</h2>
+          <p className={styles.repCount}>
+            {feedback.rep_count} rep{feedback.rep_count !== 1 ? "s" : ""} detected
+          </p>
+          <ul className={styles.checkList}>
+            {feedback.checks.map((check) => (
+              <li
+                key={check.name}
+                className={check.passed ? styles.checkPass : styles.checkFail}
+              >
+                <span className={styles.checkIcon}>{check.passed ? "✓" : "✗"}</span>
+                <span>{check.message}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </main>
   );
 }

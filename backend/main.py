@@ -1,6 +1,7 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
+from services.analysis_service import analyse_pull_up
 from services.pose_service import extract_landmarks_from_video
 
 app = FastAPI()
@@ -31,4 +32,7 @@ async def upload(file: UploadFile = File(...)):
     video_bytes = await file.read()
     pose_data = extract_landmarks_from_video(video_bytes)
 
-    return {"filename": file.filename, **pose_data}
+    # Run form analysis on the extracted landmarks and include it in the response
+    feedback = analyse_pull_up(pose_data["landmarks_per_frame"])
+
+    return {"filename": file.filename, **pose_data, "feedback": feedback}

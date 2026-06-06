@@ -81,6 +81,8 @@ def extract_landmarks_from_video(video_bytes: bytes) -> dict:
 
         # Compute timestamps from frame index + FPS rather than
         # cap.get(CAP_PROP_POS_MSEC), which can be unreliable for some codecs.
+        # Some video codecs don't store FPS metadata, causing cap.get(cv2.CAP_PROP_FPS)
+        #  to return 0.0. "or 30.0" falls back to 30 FPS as a sensible default
         fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
         frame_index = 0
 

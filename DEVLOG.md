@@ -116,7 +116,7 @@ Pydantic models describe the shape of data using Python classes. Without them, e
 ### Decisions made
 - **Tasks API over legacy `mp.solutions`** — the legacy API is removed in 0.10+, so there was no choice. The Tasks API is also the officially supported path going forward.
 - **Lite model over full/heavy** — the lite model is fast enough for real-time-ish processing and accurate enough for form analysis. The heavy model would give marginally better landmark accuracy but with significantly slower inference.
-- **VIDEO mode over IMAGE mode** — `RunningMode.VIDEO` tracks joints across frames rather than re-detecting from scratch each time, which is faster and more stable for continuous motion like pull-ups.
+- **VIDEO mode over IMAGE mode** — `RunningMode.VIDEO` tracks joints across frames rather than re-detecting from scratch each time, which is faster and more stable. timestamp_ms tells MediaPipe where in time each frame sits so it can reason about movement between frames.So instead of treating each frame independently, it uses temporal context — meaning it considers how the body was positioned in previous frames to make better predictions about the current frame. This is what makes video pose estimation smoother and more stable than running image detection on each frame independently.
 - **Computed timestamps over `CAP_PROP_POS_MSEC`** — VIDEO mode requires strictly increasing timestamps. `cap.get(CAP_PROP_POS_MSEC)` can be unreliable for some codecs, so timestamps are computed from frame index and FPS instead.
 
 ### What's next
@@ -125,47 +125,67 @@ Pydantic models describe the shape of data using Python classes. Without them, e
 
 ---
 
-## Step 4 — Video upload + pose extraction pipeline
-
-### What I built
-<!-- Fill this in -->
-
-### What broke / what was hard
-<!-- Fill this in -->
-
-### What I learned
-<!-- Fill this in -->
-
-### Decisions made
-<!-- Fill this in -->
-
-### What's next
-<!-- Fill this in -->
-
----
 
 ## Step 5 — Form analysis logic (pull-up)
-*Date: Mid July 2026*
+*Date: June 2026*
 
 ### What I built
-<!-- Fill this in -->
-
-### What broke / what was hard
-<!-- Fill this in -->
+- `backend/services/analysis_service.py` — all pull-up form analysis logic:
+  - `calculate_angle()` — given three landmark dicts (A, B, C), returns the angle in degrees at joint B using the vector dot-product formula
+  - `_smooth_signal()` — 5-frame moving average using `numpy.convolve` to remove per-frame jitter from the elbow angle signal
+  - `detect_rep_phases()` — finds the bottom and top of each rep by tracking elbow angle over time; returns rep pairs as `(bottom_frame_idx, top_frame_idx)`
+  - Four form check helpers (`_check_bottom_extension`, `_check_top_flexion`, `_check_body_alignment`, `_check_kipping`) + `analyse_pull_up()` as the main entry point
+- Added `FormCheck` and `FormFeedback` Pydantic models to `backend/models/pose_models.py` to define the shape of the feedback JSON
+- Updated `/upload` endpoint in `main.py` to call `analyse_pull_up` and include a `feedback` field in the response
+- Updated `frontend/src/pages/Upload.jsx` to read `data.feedback` from the response and render a pass/fail card for each check
+- Updated `Upload.module.css` with green (pass) and red (fail) feedback card styles
 
 ### What I learned
-<!-- Fill this in -->
+
+**Joint angle calculation using vectors:**
+To measure how bent an elbow is, you need three points: shoulder (A), elbow (B), wrist (C). You build two vectors both starting at B — one pointing toward A, one toward C — then use the dot-product formula:
+
+```
+cos(angle) = (BA · BC) / (|BA| * |BC|)
+angle = degrees(arccos(cos_angle))
+```
+
+The dot product of two vectors tells you how much they point in the same direction. When the elbow is straight (shoulder-elbow-wrist form a line), the vectors point in opposite directions and the angle is 180°. When fully bent, the angle is small (30–60°). You must clamp the input to `arccos` between -1 and 1 using `numpy.clip` because floating-point arithmetic can produce values like `1.0000000002`, which would raise a math domain error.
+
+**Signal smoothing:**
+Raw MediaPipe output is noisy — the elbow angle jitters ±5° frame-to-frame even when the person is holding still. Without smoothing, simple local-max finding would report hundreds of fake reps. A 5-frame moving average (done with `numpy.convolve` and a uniform kernel) is enough to remove that noise while preserving the actual rep shape.
+
+**Rep detection from a 1D signal:**
+The elbow angle over time is a wave: it starts near 180° (arms straight, bottom of rep), drops to ~60–90° (arms bent, top of rep), then rises again. A rep is one full cycle of that wave. Finding reps means finding local maxima (bottoms, angle > 150°) and local minima (tops, angle < 110°), then pairing each max with the next min that follows it in time. A fallback of `[(0, last_frame)]` handles the case where no clear reps are detected — the form checks still run on whatever data is available.
+
+**MediaPipe y-axis is inverted:**
+`y = 0` is the top of the screen, `y = 1` is the bottom. "Moving up" means y *decreases*. This matters for kipping detection: a sudden upward shoulder jerk shows up as a sudden *decrease* in shoulder y between consecutive frames.
 
 ### Decisions made
-<!-- How did you define "good form" thresholds? Why those specific angles? -->
-<!-- This is where your domain expertise matters — document your reasoning -->
+
+**Form check thresholds — why these specific angles:**
+- **Bottom extension > 160°**: Full anatomical extension of the elbow is 180°. Anything above 160° is close enough to count as straight — below that, the athlete is clearly not locking out between reps, which shortens range of motion. As someone who trains calisthenics, I know that not locking out is a common form cheat in high-rep sets.
+- **Top flexion < 90°**: This is the chin-over-bar criterion. An elbow angle above 90° at the top almost always means the chin has not cleared the bar. Based on my own training experience, getting the elbow to 90° or below correlates reliably with chin height.
+- **Body alignment > 160°**: Measured as the shoulder→hip→knee angle. Perfect body tension gives 180°. A bit of hollow body is normal and acceptable — the 160° threshold flags obvious hip sag without penalising athletes who naturally hold a slight hollow position.
+- **Kipping threshold 0.03 (normalised)**: At 720p, the person's body might fill ~60% of frame height, so 0.03 normalised ≈ 13px in one frame. Legitimate pull-up movement between frames is a few pixels. Kipping from a hip swing moves the whole torso upward much faster — field-tested to be above this threshold.
+
+**No scipy dependency:**
+`scipy.signal.find_peaks` would have made rep detection cleaner, but it's an extra dependency that's not otherwise used in the project. Writing a simple local-max/min finder with a plain Python loop was only ~10 lines and easy to explain in an interview without needing to reference an external library.
+
+**Average left + right elbow for rep detection:**
+The camera might be side-on (only one arm visible) or front-facing (both arms visible). When one arm is occluded, MediaPipe often mirrors its position. Averaging both elbows handles both camera angles gracefully — the average stays reasonable either way.
+
+**Skip low-visibility frames:**
+Any landmark with `visibility < 0.5` means MediaPipe isn't confident it can see that joint. Computing an angle on an occluded joint would produce a meaningless number that pollutes the averages. Better to skip those frames entirely.
 
 ### What's next
-<!-- Fill this in -->
+- Test with real pull-up video footage and adjust thresholds if needed
+- Push-up form analysis (similar structure but different joints and checks)
+- Add a loading state to the frontend while the video is being processed (long videos can take several seconds)
 
 ---
 
-## Ste`p 6 — Form analysis (push-up) + feedback UI
+## Step 6 — Form analysis (push-up) + feedback UI
 *Date: Late July 2026*
 
 ### What I built
@@ -280,6 +300,8 @@ Keep this section updated as you make significant decisions. These are gold in i
 | MediaPipe for pose estimation | OpenPose, custom model | No model training required, free, well documented |
 | Supabase for database + auth | Firebase, building auth from scratch | Managed Postgres + built-in auth saves significant time |
 | Video upload over real-time webcam | Real-time webcam | Simpler to implement, better video quality for analysis |
+| Manual local extrema for rep detection | scipy.signal.find_peaks | Avoids adding a dependency; the simple loop is easy to explain in an interview |
+| Average left+right elbow angle for rep signal | Single-arm angle | Robust to both side-on and front-facing camera angles |
 | Vercel for frontend deployment | Netlify, GitHub Pages | Free, seamless GitHub integration, instant deploys |
 | Railway/Render for backend | AWS, Heroku | Free tier, simple Python deployment |
 
@@ -297,5 +319,4 @@ Keep a log of significant bugs or problems and how you solved them. Interviewers
 
 ---
 
-*Started: June 2026*
-*Target completion: Early September 2026*
+
