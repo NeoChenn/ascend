@@ -186,22 +186,50 @@ Any landmark with `visibility < 0.5` means MediaPipe isn't confident it can see 
 ---
 
 ## Step 6 — Form analysis (push-up) + feedback UI
-*Date: Late July 2026*
+*Date: June 2026*
 
 ### What I built
-<!-- Fill this in -->
+- Push-up form analysis in `backend/services/analysis_service.py`:
+  - `_detect_pushup_rep_phases()` — rep detection with inverted thresholds vs pull-up (bottom = local min < 100°, top = local max > 150°)
+  - `_check_pushup_top_extension()` — elbow angle at top > 160° (arms locked out)
+  - `_check_pushup_bottom_depth()` — elbow angle at bottom < 100° (chest near floor)
+  - `analyse_push_up()` — entry point; reuses `_check_body_alignment` from pull-up unchanged
+- Refactored `detect_rep_phases` into `_detect_pullup_rep_phases` and extracted `_compute_elbow_angles` as a shared helper used by both exercise detectors
+- Updated `/upload` endpoint to accept an `exercise` form field and route to the correct analysis function
+- Added exercise dropdown (Pull-up / Push-up) to `Upload.jsx`, included in the FormData sent to the backend
+- Bug fix: `_check_body_alignment` was silently returning "could not assess" for all push-up videos (see below)
 
 ### What broke / what was hard
-<!-- Fill this in -->
+- **Body alignment check always failing for push-ups** — `_check_body_alignment` originally required all six joints (left AND right shoulder, hip, knee) to have visibility ≥ 0.5 before computing any angle. When filming from the side — which is required for accurate elbow angle measurement — the far-side joints are always occluded and have low MediaPipe visibility. This caused every frame to be skipped, leaving `valid_angles` empty and returning the "could not assess" fallback message even for perfect form. Fixed by checking each side independently: if the left-side joints are all visible, compute the left angle; same for right; average whichever sides are usable. At least one side will always be visible in a side-on video.
 
 ### What I learned
-<!-- Fill this in -->
+
+**Push-up rep detection is the inverse of pull-up:**
+The elbow angle signal has the same shape — a wave oscillating between a minimum and maximum — but the semantics are flipped. In a pull-up, the bottom (rest position) is arms straight = local maximum (~180°), and the top (peak effort) is arms bent = local minimum (~60°). In a push-up, the bottom (lowest point) is arms bent = local minimum (~70–90°), and the top (starting/ending position) is arms extended = local maximum (~160–180°). The rep detection algorithm is identical in structure; only the thresholds and which extreme counts as "bottom" vs "top" change.
+
+**MediaPipe visibility is joint-specific, not frame-specific:**
+I had assumed that if MediaPipe detected a pose in a frame, all landmarks in that frame would be usable. That's wrong — MediaPipe can confidently detect a pose while simultaneously reporting low visibility on specific joints that are occluded or outside the frame. A side-on camera will reliably occlude the far-side shoulder, hip, and knee, giving those landmarks visibility scores well below 0.5 even when the overall pose detection is confident. The right response is to filter at the individual joint level, not the frame level.
+
+**`Form(...)` for mixed file + text fields in FastAPI:**
+When a POST request needs both a file upload and a text field (like `exercise`), FastAPI handles them both as multipart form data. On the backend, text fields use `Form(...)` instead of `Body(...)`. On the frontend, they're both appended to the same `FormData` object — the browser handles the multipart encoding automatically.
 
 ### Decisions made
-<!-- Fill this in -->
+
+**Push-up threshold rationale:**
+- **Top extension > 160°**: Same threshold as pull-up bottom extension. Full lockout is important — stopping short at the top means the triceps never complete their range of motion, and the athlete doesn't build pressing strength through the full movement.
+- **Bottom depth < 100°**: At genuine full depth (chest touching or nearly touching the ground), the elbow is around 70–90° depending on torso length and hand position. 100° gives a small buffer while clearly flagging partial reps where the athlete is stopping well above the floor.
+- **Body alignment > 160°**: Reused from pull-up — the shoulder→hip→knee angle catches both hip sag (hips dropping below the plank line) and pike (hips rising above it). Push-up alignment failure is usually one of these two, so the same check works for both exercises.
+
+**Elbow flare skipped for MVP:**
+CLAUDE.md notes that elbows should be at roughly 45° from the body. Detecting this reliably requires seeing the front of the body — you'd compare horizontal elbow spread to shoulder width. From a side-on camera (which is required for everything else), this is completely invisible. Not worth implementing until the app can confirm camera orientation.
+
+**architecture note — not splitting `analysis_service.py` yet:**
+With two exercises the file is manageable. The right time to split is when adding a third exercise — at that point, the natural structure would be `services/analysis/_shared.py` (shared utilities), `services/analysis/pull_up.py`, `services/analysis/push_up.py`, etc. Doing it now for two exercises would be premature.
 
 ### What's next
-<!-- Fill this in -->
+- Supabase setup + user authentication
+- Save upload history and skill progress to the database
+- Loading state on the frontend during video processing
 
 ---
 

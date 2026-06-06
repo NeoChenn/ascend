@@ -3,6 +3,7 @@ import { useState } from "react"
 
 export default function Upload() {
   const [selectedFile, setSelectedFile] = useState(null)
+  const [exercise, setExercise] = useState("pull_up")
   const [filename, setFilename] = useState("")
   const [feedback, setFeedback] = useState(null)
 
@@ -10,6 +11,7 @@ export default function Upload() {
     e.preventDefault()
     const formData = new FormData()
     formData.append("file", selectedFile)
+    formData.append("exercise", exercise)
     const response = await fetch("http://127.0.0.1:8000/upload", {
       method: "POST",
       body: formData
@@ -28,6 +30,10 @@ export default function Upload() {
       </p>
       <div className={styles.dropzone}>
         <form onSubmit={handleSubmit}>
+          <select value={exercise} onChange={(e) => setExercise(e.target.value)}>
+            <option value="pull_up">Pull-up</option>
+            <option value="push_up">Push-up</option>
+          </select>
           <input type="file" name="file" accept="video/*" onChange={(e) => setSelectedFile(e.target.files[0])}/>
           <button type="submit">Upload</button>
           {filename && <p>Uploaded: {filename}</p>}
