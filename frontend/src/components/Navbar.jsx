@@ -9,7 +9,6 @@ export default function Navbar() {
     <nav className={styles.nav}>
       <Link to="/" className={styles.brand}>Ascend</Link>
       <div className={styles.links}>
-        <Link to="/skill-tree">Skill Tree</Link>
         {user ? (
           <>
             <span className={styles.email}>{user.email}</span>

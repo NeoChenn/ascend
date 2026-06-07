@@ -49,22 +49,61 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
 | Backend deployment | Railway or Render |
 | LLM feedback | Claude API |
 
-## Project structure (planned)
+## Current build status
+
+**Done:**
+- Video upload + MediaPipe pose extraction
+- Pull-up and push-up form analysis (angle-based, structured feedback cards)
+- Supabase: schema (4 tables), RLS policies, storage buckets (demo-videos, unlock-videos)
+- Auth: login, signup, session persistence via AuthContext
+- Muscle map skill tree landing page (interactive SVG at /skill-tree)
+- Track placeholder pages at /track/:trackId (push, pull, core, legs)
+
+**Next:**
+- Render real skills from Supabase on each track page (skill nodes, locked/unlockable/unlocked states)
+- Skill node click → upload modal with filming instructions
+- Skill-specific upload flow wired to existing form analysis
+- Pass/fail → write to user_skills + skill_attempts in Supabase
+
+## Project structure (current)
 
 ```
 calisthenics-coach/
-├── frontend/          # React + Vite app
+├── frontend/
 │   ├── src/
-│   │   ├── pages/     # Home, Upload, SkillTree
+│   │   ├── context/
+│   │   │   └── AuthContext.jsx        # session state, useAuth() hook
+│   │   ├── pages/
+│   │   │   ├── Home.jsx               # landing page
+│   │   │   ├── SkillTree.jsx          # muscle map — navigates to track pages
+│   │   │   ├── TrackPage.jsx          # skill nodes for one track (/track/:trackId)
+│   │   │   ├── Upload.jsx             # legacy generic upload (to be replaced)
+│   │   │   ├── Login.jsx
+│   │   │   └── Signup.jsx
 │   │   ├── components/
-│   │   └── App.jsx
-├── backend/           # FastAPI app
-│   ├── main.py
-│   ├── routes/
-│   ├── services/      # Pose estimation logic, form analysis
-│   └── models/        # Data models
+│   │   │   └── Navbar.jsx
+│   │   ├── App.jsx                    # routes: /, /skill-tree, /track/:trackId, /login, /signup
+│   │   └── supabaseClient.js          # single shared Supabase client
+├── backend/
+│   ├── main.py                        # FastAPI app, /upload endpoint
+│   ├── database.py                    # single shared Supabase client
+│   ├── services/
+│   │   ├── pose_service.py            # MediaPipe landmark extraction
+│   │   └── analysis/
+│   │       ├── __init__.py            # exports analyse_pull_up, analyse_push_up
+│   │       ├── _shared.py             # calculate_angle, smoothing, body alignment
+│   │       ├── pull_up.py
+│   │       └── push_up.py
+│   └── models/
+│       └── pose_models.py             # Pydantic models
 └── CLAUDE.md
 ```
+
+## Skill tree navigation
+
+- `/skill-tree` — interactive SVG muscle map; hovering muscles highlights the track colour; clicking navigates to that track
+- `/track/push` → `/track/pull` → `/track/legs` → `/track/core` — one page per track, renders skills from Supabase
+- Track colours: push=#f59e0b (amber), pull=#60a5fa (blue), core=#a78bfa (purple), legs=#34d399 (green)
 
 ## User flow
 
