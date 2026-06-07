@@ -1,7 +1,7 @@
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from services.analysis_service import analyse_pull_up, analyse_push_up
+from services.analysis import analyse_pull_up, analyse_push_up
 from services.pose_service import extract_landmarks_from_video
 
 app = FastAPI()
