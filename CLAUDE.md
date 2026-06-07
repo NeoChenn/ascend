@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-# Calisthenics Coach
+# Ascend
 
 ## Commands
 
@@ -23,7 +23,9 @@ pytest tests/test_foo.py     # run a single test file
 
 ## Project overview
 
-An AI-powered calisthenics coaching web app. Users upload a video of themselves performing a calisthenics skill, receive automated form feedback based on pose estimation, and track their progression through a visual skill tree.
+An RPG-style calisthenics progression app. The skill tree is the core of the app — users browse skills organised into tracks (push, pull, legs, core), pick one they want to unlock, upload a video attempting it, and receive automated form analysis against that skill's specific criteria. Pass → skill unlocked, video saved to their profile. Fail → feedback shown, try again.
+
+Each skill node displays a demo video (filmed by the developer) until the user unlocks it, at which point their own unlock video replaces it and becomes permanently rewatchable on the node.
 
 This is a personal project built for my CV as a first-year CS student at UCL. It should be complete, deployed, and demonstrable to recruiters.
 
@@ -45,7 +47,7 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
 | Database + Auth | Supabase (PostgreSQL) |
 | Frontend deployment | Vercel |
 | Backend deployment | Railway or Render |
-| LLM feedback (stretch) | Claude API |
+| LLM feedback | Claude API |
 
 ## Project structure (planned)
 
@@ -64,19 +66,56 @@ calisthenics-coach/
 └── CLAUDE.md
 ```
 
+## User flow
+
+1. User lands on the skill tree — four tracks (push, pull, legs, core), each a vertical chain of skill nodes
+2. Locked skills show a demo video; skills with unmet prerequisites are greyed out
+3. User clicks an unlockable skill → modal opens with skill info and an upload button
+4. User uploads a video → backend runs MediaPipe + form analysis against that skill's specific criteria
+5. Pass → skill marked unlocked, user's video saved to Supabase Storage, node now shows their video
+6. Fail → Claude API feedback shown, user can try again
+
 ## MVP features
 
-1. **Video upload + pose extraction** — user uploads a video, backend runs MediaPipe and returns joint coordinates
-2. **Form feedback** — angle-based analysis for pull-ups and push-ups, returning structured feedback
-3. **Skill tree** — visual progression map, user can mark skills as in-progress or completed
-4. **User accounts** — Supabase auth, save upload history and skill progress
+1. **Skill tree UI** — RPG-style visual map with four tracks: push, pull, legs, core
+2. **User accounts** — Supabase auth; all progress and videos tied to a user
+3. **Video upload + pose extraction + form feedback** — user uploads a video for a specific skill; before uploading, the skill node shows filming instructions (e.g. "film from the side, full body in frame") to ensure accurate landmark detection. Backend runs MediaPipe and returns structured feedback cards (one per form check, each pass or fail). While the video is processing, the frontend displays the uploaded video with the MediaPipe skeleton overlay rendered on top.
+4. **Pass/fail unlock verdict** — a skill is unlocked if and only if every form check card returns pass. The set of checks that run is determined by which skill is being attempted (e.g. pull-up checks for a pull-up skill). Claude API provides narrative feedback text alongside the cards.
+5. **Video storage** — unlock video saved to Supabase Storage, replaces demo video on the node
+
+## Database schema
+
+**`skills`** — master list of all skills (not per-user)
+- `id`, `name`, `track` (push/pull/legs/core), `description`
+- `demo_video_url` (nullable — may not have filmed yet)
+- `analysis_key` (nullable — e.g. `"push_up"`; null means no automated analysis yet)
+- `pass_threshold` (float, 0–1)
+- `order_in_track` (integer, controls visual position)
+- `filming_instructions` (text — shown to user before upload, e.g. "Film from the side. Ensure your full body is visible from head to toe. Keep the camera steady.")
+
+**`skill_prerequisites`** — junction table, many-to-many
+- `skill_id` → skills, `requires_skill_id` → skills
+- No track restriction — cross-track prerequisites are allowed (e.g. muscle-up requires pull-up + dip)
+
+**`user_skills`** — user progress per skill
+- `user_id` → auth.users, `skill_id` → skills
+- `status`: `"unlockable"` or `"unlocked"` (no row = locked, computed from prerequisites)
+- `unlock_video_url` (nullable), `unlocked_at` (nullable), `attempt_count`
+- Rows only created on first interaction — not pre-seeded at signup
+
+**`skill_attempts`** — one row per upload attempt, preserved permanently as history
+- `id`, `user_id` → auth.users, `skill_id` → skills
+- `passed` (boolean)
+- `feedback` (JSONB — the full checks array, e.g. `[{"check": "bottom_extension", "passed": true, "message": "..."}]`)
+- `video_url` (nullable — only stored for passing attempts to save storage)
+- `attempted_at` (timestamp)
+- On pass: write attempt row, then update `user_skills` to `"unlocked"` and copy `video_url` there
 
 ## Out of scope for MVP
 
 - Real-time webcam analysis
 - Mobile app
 - Social features
-- More than 2-3 exercises
 
 ## Coding guidelines
 
@@ -108,6 +147,12 @@ calisthenics-coach/
 - Add comments explaining MediaPipe landmark indices and angle calculation logic — these are not obvious
 
 ## Key domain knowledge (calisthenics)
+
+Filming requirements per exercise (shown to user before upload):
+- **Pull-up**: film from the side, full body in frame (head to feet), bar at the top of frame. Side-on is required so elbow angle and body alignment are visible. Front-facing occludes the near/far arm and makes angle calculation unreliable.
+- **Push-up**: film from the side, full body in frame. Same reason as pull-up — elbow angle and hip alignment are only readable side-on.
+- **L-sit / core skills**: film from the side, full body in frame, enough floor visible to confirm hip height.
+- **Legs skills** (e.g. squat progressions): film from the side, full body in frame, feet flat on ground visible.
 
 Form checkpoints for pull-up:
 - Bottom position: arms fully extended, slight hollow body

@@ -4,3 +4,5 @@ python-multipart
 mediapipe
 opencv-python
 numpy
+supabase
+python-dotenv

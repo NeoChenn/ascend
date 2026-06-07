@@ -233,29 +233,125 @@ With two exercises the file is manageable. The right time to split is when addin
 
 ---
 
-## Step 7 — Supabase + user accounts
-*Date: Early August 2026*
+## Design pivot — skill-tree-first
+*Date: June 2026*
+
+### Decision
+
+Reframed the app from a generic "upload a video, get feedback" tool to a skill-tree-first RPG-style progression app. The skill tree is now the emotional core — form analysis exists to serve it, not the other way around.
+
+### New user flow
+1. User lands on the skill tree (four tracks: push, pull, legs, core)
+2. Each node shows a demo video until unlocked
+3. User picks an unlockable skill → uploads a video attempting it
+4. While the video processes, the frontend shows the uploaded video with the MediaPipe skeleton overlay rendered on top
+5. Backend runs the exercise's form check functions and returns structured feedback cards (one per check, pass or fail)
+6. **Skill unlocks if and only if every card is a pass** — no partial credit, no score threshold
+7. On unlock: video saved to Supabase Storage, node now shows the user's own video permanently
+
+### Why this is better
+- The form analysis now has a purpose — it's the gate to unlock a skill, not just a diagnostic tool
+- The RPG framing makes progression visible and emotionally rewarding
+- Demo-video-replaced-by-your-video is a strong memorable feature for a CV project
+
+### What this changes architecturally
+- Supabase is now required earlier (user accounts needed before skill progress can be saved)
+- Skills need a database table with `analysis_key` (which analysis function to run), `demo_video_url`, and prerequisite relationships
+- The `/upload` endpoint needs to know which skill is being attempted, not just which exercise
+- Pass/fail is binary: all form check functions must return `passed: True`
+- Claude API moved from stretch goal to planned feature — provides narrative feedback text alongside the cards
+
+### Database schema decided
+See CLAUDE.md for full schema. Key tables: `skills`, `skill_prerequisites` (junction), `user_skills` (progress per user). User skill rows are only created on first interaction — not pre-seeded at signup. Locked/unlockable status is computed from prerequisites at query time.
+
+---
+
+## Step 7 — Supabase setup + user auth
+*Date: June 2026*
 
 ### What I built
-<!-- Fill this in -->
+
+**Supabase project:**
+- Created Supabase project and designed the full database schema (4 tables): `skills`, `skill_prerequisites`, `user_skills`, `skill_attempts`
+- Set up Row Level Security (RLS) policies: `skills` and `skill_prerequisites` are publicly readable; `user_skills` and `skill_attempts` are user-owned (users can only read/write their own rows)
+- Created two Storage buckets: `demo-videos` (public — anyone can view demo clips on the skill tree) and `unlock-videos` (private — signed URLs required, users can only access their own folder)
+- Installed `supabase` and `python-dotenv` on the backend; `@supabase/supabase-js` on the frontend
+- Created `backend/database.py` and `frontend/src/supabaseClient.js` — single shared client instances imported wherever needed
+
+**Auth:**
+- `frontend/src/context/AuthContext.jsx` — React context that holds the current user session. Uses `supabase.auth.getSession()` on mount to restore any existing session, then `onAuthStateChange` to stay in sync with future login/logout/token refresh events. Exposes `user` and `signOut` to any component via `useAuth()` hook.
+- `frontend/src/pages/Login.jsx` — email + password form calling `supabase.auth.signInWithPassword`. Redirects to /skill-tree on success, displays error message on failure.
+- `frontend/src/pages/Signup.jsx` — same structure, calls `supabase.auth.signUp`
+- Updated `Navbar.jsx` — shows user email + Sign out button when logged in; Sign in / Sign up links when not
+- Updated `App.jsx` — wrapped in `<AuthProvider>`, added `/login` and `/signup` routes
+- Updated `Home.jsx` — rebranded to Ascend with skill-tree-first copy
 
 ### What broke / what was hard
-<!-- Fill this in -->
+
+**Email confirmations blocking signup** — Supabase enables email confirmation by default. On signup, the account is created but no session is started until the user clicks the confirmation link. This meant `supabase.auth.signUp` appeared to succeed (no error returned) but `user` was still null and the redirect to /skill-tree left the user looking logged out. Fixed by disabling email confirmations in Supabase → Authentication → Settings for local dev.
+
+**Loading flash before session resolves** — On page refresh, `AuthContext` initialises with `user = null` before `getSession()` completes. Without a `loading` guard, the app briefly renders as "logged out" even for authenticated users (navbar flashes the login links before switching to the email). Fixed by keeping `loading: true` until the first session check resolves and not rendering children until then.
 
 ### What I learned
-<!-- Fill this in -->
+
+**What Row Level Security is:**
+RLS is PostgreSQL's built-in access control system. Every query to a Supabase table runs through the policies you define. Without any policy, a table with RLS enabled rejects all requests. `USING (auth.uid() = user_id)` is the standard pattern for user-owned rows — Supabase injects the authenticated user's ID from their JWT into `auth.uid()`, so the database itself enforces that users can only touch their own data, even if the frontend sends a malicious request.
+
+**Core database concepts applied for the first time:**
+- **Foreign keys** — a column in one table that references the primary key of another, enforcing that the value must exist in the referenced table. `skill_id UUID REFERENCES skills(id)` means you cannot insert a `skill_attempts` row with a `skill_id` that doesn't correspond to a real skill — the database rejects it automatically. This is called referential integrity.
+- **`ON DELETE CASCADE`** — when a parent row is deleted, all child rows referencing it are automatically deleted too. Both `user_skills` and `skill_attempts` cascade from `auth.users`, so deleting a user account cleans up all their data automatically.
+- **Composite primary key** — `skill_prerequisites` uses `PRIMARY KEY (skill_id, requires_skill_id)` instead of a separate UUID. Neither column alone is unique, but the pair always is — "skill X requires skill Y" should only ever appear once.
+- **`UNIQUE (user_id, skill_id)`** on `user_skills` — prevents the backend from accidentally inserting two progress rows for the same user and skill, regardless of what the application code does. The database enforces it as a last line of defence.
+
+
+**Why `onAuthStateChange` instead of just `getSession`:**
+`getSession()` is a one-time check. If you only call it on mount, the UI won't update when the user signs in or out in another tab, or when the JWT silently refreshes in the background. `onAuthStateChange` is a persistent subscription that fires on every auth event for the lifetime of the component — it's the correct way to keep auth state in sync in a React app.
+
+**What a React context is:**
+A context is a way to share state across the component tree without passing props down through every level ("prop drilling"). `AuthContext` lives at the top of the tree in `App.jsx`, and any component anywhere in the tree can call `useAuth()` to get the current user — the Navbar, the skill tree nodes, the upload modal. Without context, you'd have to pass `user` as a prop through every intermediate component.
+
+**React `useEffect` and the component lifecycle:**
+- **Rendering** — React recalculating what the UI should look like and updating the DOM. Happens many times throughout a component's life — whenever state or props change. The component still exists, it's just being updated.
+- **Mounting** — the component is added to the page for the first time. `useEffect` with `[]` runs once after mount — the correct place for one-time setup like session checks and subscriptions.
+- **Unmounting** — the component is removed from the DOM entirely. The cleanup function returned from `useEffect` runs here — the correct place to cancel subscriptions, clear timers, or clean up anything that lives outside React.
+- **Why code belongs in `useEffect` rather than the component body** — the component body runs on every render, synchronously, before the DOM updates. Side effects like API calls and subscriptions should run after the DOM is updated and only when needed. `useEffect` with `[]` guarantees this — once on mount, never again on re-render.
+- **`useEffect` without `[]`** — runs after every render, after the DOM updates. Not the same as the component body despite similar frequency — the timing difference (after vs during render) matters for side effects.
+
+**How `onAuthStateChange` persists:**
+- Supabase maintains its own internal list of registered callbacks entirely outside of React. When you call `onAuthStateChange`, Supabase stores your callback in its own memory. Auth events — login, logout, token refresh — trigger the callback independently of React's render cycle.
+- The `subscription` object returned by `onAuthStateChange` is a reference to that registration. It has one method: `unsubscribe()`, which tells Supabase to remove the callback from its internal list.
+- Without calling `unsubscribe()` on unmount, Supabase would keep calling the callback forever — even after the component is gone — causing a memory leak. This is why the cleanup function is necessary.
+- If you put supabase.auth.onAuthStateChange(...) directly in the component body, you'd create a new subscription on every render — leaking subscriptions until your app runs out of memory.
+
+**JWT forwarding vs service role key:**
+When the backend (FastAPI) needs to call Supabase on behalf of a user — e.g. saving their unlock video — there are two options: use the service role key (bypasses all RLS, can read/write anything) or forward the user's JWT from the frontend request and initialise a Supabase client with it (RLS applies, client is scoped to that user). The second approach is correct: it means the database's own access policies enforce security, rather than trusting that the backend won't do anything wrong.
 
 ### Decisions made
-<!-- Why Supabase over building auth from scratch? -->
-<!-- What did you store in the database and why? -->
+
+**"Try before you commit" auth model — no protected routes:**
+Initially considered protecting `/skill-tree` and `/upload` to force login. Rejected this because the core value of the app — the skill tree itself — should be visible to everyone. Instead, auth state changes what *actions* are available: guests can browse and run form analysis, but unlocking a skill requires an account. When a guest passes, they see "You passed! Sign in to save your unlock." This is the Duolingo pattern — let users see the value before asking for commitment.
+
+**`skill_attempts` table added for history:**
+Originally not in scope. Added because the marginal effort (10 minutes of schema design) is tiny compared to the interview value: "I store every attempt so users can see specific measurements improving between tries." Each attempt stores the full feedback JSON so you can compare check-by-check across attempts. Failed attempt videos are not stored to save storage.
+
+**`user_skills` rows created on interaction, not pre-seeded at signup:**
+Considered inserting a row for every skill when a user signs up. Rejected because it creates a maintenance problem: adding new skills later would require a migration to backfill rows for existing users. Instead, a missing row means "not yet interacted" — locked or unlockable status is computed from prerequisites at query time.
+
+**`demo_video_url` nullable on `skills`:**
+The developer (me) may not have filmed the demo for every skill before launch. Nullable means the skill can exist in the database and appear in the tree without a demo video yet.
 
 ### What's next
-<!-- Fill this in -->
+- Seed the `skills` table with the initial skill set across all four tracks
+- Build the skill tree UI — nodes, tracks, locked/unlockable/unlocked states, prerequisite edges
 
 ---
 
 ## Step 8 — Skill tree
-*Date: Mid August 2026*
+*Date: Mid August 2026*Foreign keys and referential integrity — what REFERENCES does and why it matters
+ON DELETE CASCADE — automatic cleanup of child rows when a parent is deleted
+Composite primary keys — why skill_prerequisites uses (skill_id, requires_skill_id) instead of a separate UUID
+UNIQUE (user_id, skill_id) on user_skills — prevents duplicate progress rows at the database level
+JSONB vs TEXT — storing feedback as structured queryable JSON rather than a raw string
 
 ### What I built
 <!-- Fill this in -->

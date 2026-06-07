@@ -27,3 +27,34 @@
 .links a:hover {
   color: #f0f0f0;
 }
+
+.email {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.signOutButton {
+  background: none;
+  border: none;
+  color: #a0a0a0;
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.signOutButton:hover {
+  color: #f0f0f0;
+}
+
+.signUpLink {
+  background: #fff;
+  color: #0f0f0f !important;
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.signUpLink:hover {
+  background: #e0e0e0 !important;
+  color: #0f0f0f !important;
+}

@@ -4,13 +4,13 @@ import styles from './Home.module.css'
 export default function Home() {
   return (
     <main className={styles.container}>
-      <h1>Calisthenics Coach</h1>
+      <h1>Ascend</h1>
       <p className={styles.subtitle}>
-        Upload a video of your movement and get instant form feedback powered by pose estimation.
+        Unlock calisthenics skills by proving your form. Upload a video, pass the analysis, earn the node.
       </p>
       <div className={styles.actions}>
-        <Link to="/upload" className={styles.primaryButton}>Upload a video</Link>
-        <Link to="/skill-tree" className={styles.secondaryButton}>View skill tree</Link>
+        <Link to="/skill-tree" className={styles.primaryButton}>View skill tree</Link>
+        <Link to="/signup" className={styles.secondaryButton}>Create account</Link>
       </div>
     </main>
   )
