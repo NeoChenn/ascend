@@ -57,13 +57,13 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
 - Supabase: schema (4 tables), RLS policies, storage buckets (demo-videos, unlock-videos)
 - Auth: login, signup, session persistence via AuthContext
 - Muscle map skill tree landing page (interactive SVG at /skill-tree)
-- Track placeholder pages at /track/:trackId (push, pull, core, legs)
+- Track pages at /track/:trackId — column-based skill tree with real Supabase data, locked/unlockable/unlocked states, H-branch SVG connectors
+- SkillNode component (3 visual states) + SkillModal (skill info, filming instructions, disabled upload button)
 
 **Next:**
-- Render real skills from Supabase on each track page (skill nodes, locked/unlockable/unlocked states)
-- Skill node click → upload modal with filming instructions
-- Skill-specific upload flow wired to existing form analysis
-- Pass/fail → write to user_skills + skill_attempts in Supabase
+- Skill-specific upload flow: wire SkillModal "Upload attempt" button to backend form analysis
+- Pass/fail result → write to user_skills + skill_attempts in Supabase
+- Skill node updates to unlocked state after successful upload
 
 ## Project structure (current)
 
@@ -81,7 +81,9 @@ calisthenics-coach/
 │   │   │   ├── Login.jsx
 │   │   │   └── Signup.jsx
 │   │   ├── components/
-│   │   │   └── Navbar.jsx
+│   │   │   ├── Navbar.jsx
+│   │   │   ├── SkillNode.jsx              # skill card: locked / unlockable / unlocked states
+│   │   │   └── SkillModal.jsx             # modal: skill info + filming instructions + upload button
 │   │   ├── App.jsx                    # routes: /, /skill-tree, /track/:trackId, /login, /signup
 │   │   └── supabaseClient.js          # single shared Supabase client
 ├── backend/

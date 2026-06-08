@@ -346,29 +346,56 @@ The developer (me) may not have filmed the demo for every skill before launch. N
 
 ---
 
-## Step 8 — Skill tree
-*Date: Mid August 2026*Foreign keys and referential integrity — what REFERENCES does and why it matters
-ON DELETE CASCADE — automatic cleanup of child rows when a parent is deleted
-Composite primary keys — why skill_prerequisites uses (skill_id, requires_skill_id) instead of a separate UUID
-UNIQUE (user_id, skill_id) on user_skills — prevents duplicate progress rows at the database level
-JSONB vs TEXT — storing feedback as structured queryable JSON rather than a raw string
+## Step 8 — Skill tree UI + data layer
+*Date: June 2026*
 
 ### What I built
-<!-- Fill this in -->
+- Designed and seeded the full 20-skill tree across 4 tracks in Supabase (push, pull, core, legs), including prerequisite relationships in `skill_prerequisites`
+- `SkillNode` component — card with 3 visual states: locked (muted, padlock icon), unlockable (track-colour border + glow, clickable), unlocked (track-colour fill, checkmark). Shows "Requires: X" on locked cards.
+- `SkillModal` component — opens when clicking an unlockable node; shows skill name, description, filming instructions from Supabase, and a disabled "Upload attempt" button (wired in next step)
+- `TrackPage` — fetches skills, prerequisites, and user's unlocked skills from Supabase; computes locked/unlockable/unlocked state for each skill; renders a column-based prerequisite tree with H-shaped SVG connectors
 
 ### What broke / what was hard
-<!-- Fill this in -->
+- **"permission denied for table skills" (Supabase code 42501)** — the `skills` and `skill_prerequisites` tables showed "API DISABLED" in the Supabase dashboard. This wasn't an RLS issue — it was a Data API exposure setting. Fixed via: Project Settings → API → Data API → confirm `public` schema is listed in Exposed schemas.
+- **Connector lines pointing at the wrong node** — first attempt used a tier-based layout (grouping skills by depth). This drew a single H-connector spanning a whole row, so Straddle Planche, Handstand Push-up, and One-arm Push-up all shared one connector even though their prerequisites are in different columns. Fixed by switching to a column-based layout.
+- **Duplicate nodes in the tree (Explosive Pull-up × 3)** — the initial column-building algorithm traced from each leaf back to the root. When a skill has multiple children (Explosive Pull-up → Muscle-up, Straddle FL, Archer Pull-up), it appeared once per leaf path. Fixed by walking forward from the root to the branch node first, then building chains only from that node's direct children upward — so shared ancestors appear exactly once.
 
 ### What I learned
-<!-- Fill this in -->
+
+**Graph traversal for UI layout:**
+The skill prerequisite structure is a DAG (directed acyclic graph). Rendering it correctly as a visual tree required:
+1. Finding the root (skill with no in-track prerequisites)
+2. Walking single-child links upward to find the "branch node" — the first skill with more than one child
+3. Building one independent column per branch node child, tracing each up to its leaf
+
+This is essentially a BFS/DFS with a stop condition. The key insight is that building chains from the root downward (not from leaves upward) prevents shared ancestors from being duplicated.
+
+**SVG for dynamic connector lines:**
+Used inline SVG to draw the H-shaped connectors between the branch node and the column tops. The SVG width is computed as `columnCount × 200 + (columnCount - 1) × 16` — the constants must match the CSS column width and gap exactly, otherwise the lines don't line up with the nodes.
+
+**CSS flex alignment gotcha:**
+A 2px-wide connector `<div>` left-aligns if it's nested inside a wrapper `<div>`, even if the parent column has `align-items: center`. Fix: use `flatMap` to make connector divs direct flex children of the `.column` container rather than wrapping each node + connector in a div. With direct children, `align-items: center` actually centres the line on the node.
 
 ### Decisions made
-<!-- How did you structure the skill progression data? -->
-<!-- Why did you choose those specific exercises for the tree? -->
-<!-- This is where your calisthenics domain knowledge is a differentiator — document it -->
+
+**Column-based layout over tier-based:**
+Tier-based layout (grouping skills by depth) was simpler to implement but visually incorrect — one H-connector spanning an entire row regardless of actual prerequisites. Column-based layout requires more graph analysis but draws correct connectors where every skill visually connects directly to its prerequisite. The added complexity is justified because the accurate visual is the whole point of a skill tree.
+
+**20 skills across 4 tracks — exercise selection:**
+As an advanced calisthenics practitioner, I chose exercises that form genuine biomechanical progression chains. The handstand is a prerequisite for the handstand push-up because you cannot press overhead without first controlling the balance; bent arm planche work is a prerequisite for full planche because you need to build the straight-arm strength progressively. The domain knowledge makes every prerequisite edge defensible in an interview rather than arbitrary.
+
+**Unique `order_in_track` values for left-to-right column ordering:**
+Within a row of branches, left-to-right order is controlled by `order_in_track` in Supabase. Using unique values (rather than the same value for same-depth skills) makes ordering deterministic — PostgreSQL does not guarantee a stable order for ties, so shared values caused non-deterministic rendering.
 
 ### What's next
-<!-- Fill this in -->
+- Wire the "Upload attempt" button in SkillModal to the backend form analysis
+- Pass/fail result → write to `user_skills` and `skill_attempts` in Supabase
+- Skill node updates to unlocked state after a successful upload
+- "Sign in to save" prompt for guest users who pass
+- Skeleton overlay: render the MediaPipe landmark positions on top of the uploaded video while it processes, so the user can see what the backend is analysing
+- Film and upload demo videos for all skill nodes (all `demo_video_url` fields are currently null in Supabase)
+- Attempt history: surface the `skill_attempts` table in the UI — show past tries per skill with the feedback JSON, so users can see which specific checks they failed and track improvement over time
+- Edge case UX: handle gracefully when MediaPipe detects no pose (person too far away, poor lighting, wrong angle) — return a clear "we couldn't detect a pose — check your filming setup" message rather than empty feedback or a silent crash
 
 ---
 
@@ -401,7 +428,16 @@ JSONB vs TEXT — storing feedback as structured queryable JSON rather than a ra
 <!-- Fill this in -->
 
 ### Stretch goals attempted
-<!-- LLM feedback via Claude API? Skeleton overlay? Third exercise? -->
+<!-- Fill in what you actually attempted -->
+
+Planned stretch goals (attempt if time allows):
+- **LLM narrative feedback** — use the Claude API to turn the structured pass/fail checks into a short paragraph of natural language coaching, e.g. "Your bottom position is solid but you're not quite locking out at the top — focus on driving your elbows down at the peak of each rep." More human than a list of pass/fail cards.
+- **More exercises** — extend form analysis to squat (for the legs track) and L-sit / toes-to-bar (for the core track). Each needs its own set of landmark-based checks.
+- **UI polish — game feel**
+  - Skill nodes as shaped cards or hexagons rather than plain rectangles
+  - Skill illustration or icon on each node instead of (or alongside) the text name
+  - Unlock animation — particle effect or colour burst when a skill is unlocked
+  - Smoother transitions between locked/unlockable/unlocked states
 
 ### Reflection
 <!-- Looking back at the whole project:
