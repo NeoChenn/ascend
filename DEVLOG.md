@@ -305,7 +305,7 @@ RLS is PostgreSQL's built-in access control system. Every query to a Supabase ta
 
 
 **Why `onAuthStateChange` instead of just `getSession`:**
-`getSession()` is a one-time check. If you only call it on mount, the UI won't update when the user signs in or out in another tab, or when the JWT silently refreshes in the background. `onAuthStateChange` is a persistent subscription that fires on every auth event for the lifetime of the component — it's the correct way to keep auth state in sync in a React app.
+`getSession()` is a one-time check. If you only call it on mount, the UI won't update when the user signs in or out in another tab, or when the JWT silently refreshes in the background. `onAuthStateChange` is a persistent subscription that fires on every auth event for the lifetime of the component — it's the correct way to keep auth state in sync in a React app.I
 
 **What a React context is:**
 A context is a way to share state across the component tree without passing props down through every level ("prop drilling"). `AuthContext` lives at the top of the tree in `App.jsx`, and any component anywhere in the tree can call `useAuth()` to get the current user — the Navbar, the skill tree nodes, the upload modal. Without context, you'd have to pass `user` as a prop through every intermediate component.

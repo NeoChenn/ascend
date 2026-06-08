@@ -189,8 +189,8 @@ calisthenics-coach/
 
 Filming requirements per exercise (shown to user before upload):
 - **Pull-up**: film from the side, full body in frame (head to feet), bar at the top of frame. Side-on is required so elbow angle and body alignment are visible. Front-facing occludes the near/far arm and makes angle calculation unreliable.
-- **Push-up**: film from the side, full body in frame. Same reason as pull-up — elbow angle and hip alignment are only readable side-on.
-- **L-sit / core skills**: film from the side, full body in frame, enough floor visible to confirm hip height.
+- **Push-up**: film from the side, full body in frame. Side-on is required so elbow angle and body alignment are visible. Front-facing occludes the near/far arm and makes angle calculation unreliable.
+- **Core skills**: film from the side, full body in frame. Bar at the top of frame if using a bar; enough floor visible to confirm hip height if using parallettes or floor.
 - **Legs skills** (e.g. squat progressions): film from the side, full body in frame, feet flat on ground visible.
 
 Form checkpoints for pull-up:

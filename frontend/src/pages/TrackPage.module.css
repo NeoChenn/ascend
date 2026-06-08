@@ -26,4 +26,35 @@
 
 .subtitle {
   color: #a0a0a0;
+  margin-bottom: 0;
+}
+
+/* Outer wrapper for the whole skill chain */
+.chain {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  margin-top: 2.5rem;
+}
+
+/* Wrapper for one tier + its connector line.
+   column-reverse puts the connector at the visual bottom of the group,
+   so it sits between this tier and the parent tier below it. */
+.tierGroup {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+}
+
+/* Thin vertical line for single-node tiers */
+.connector {
+  width: 2px;
+  height: 3rem;
+}
+
+/* One horizontal row of skill nodes (multiple = a branch) */
+.tier {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
 }

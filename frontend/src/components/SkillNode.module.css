@@ -1,0 +1,47 @@
+.node {
+  width: 200px;
+  padding: 1rem 1.25rem;
+  border-radius: 10px;
+  border: 1px solid #333;
+  background: #1e1e1e;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.node.unlockable:hover {
+  transform: translateY(-2px);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #f0f0f0;
+}
+
+/* Locked state — muted text */
+.locked .name {
+  color: #555;
+}
+
+.icon {
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+/* Unlocked state — icon is white on the coloured background */
+.unlocked .icon {
+  color: #fff;
+  font-weight: 700;
+}
+
+.prereq {
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  color: #444;
+}
