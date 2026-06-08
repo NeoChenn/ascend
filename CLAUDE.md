@@ -25,7 +25,7 @@ pytest tests/test_foo.py     # run a single test file
 
 An RPG-style calisthenics progression app. The skill tree is the core of the app — users browse skills organised into tracks (push, pull, legs, core), pick one they want to unlock, upload a video attempting it, and receive automated form analysis against that skill's specific criteria. Pass → skill unlocked, video saved to their profile. Fail → feedback shown, try again.
 
-Each skill node displays a demo video (filmed by the developer) until the user unlocks it, at which point their own unlock video replaces it and becomes permanently rewatchable on the node.
+Once unlocked, a skill stores the user's own video and they can rewatch it in the skill modal at any time.
 
 This is a personal project built for my CV as a first-year CS student at UCL. It should be complete, deployed, and demonstrable to recruiters.
 
@@ -54,16 +54,20 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
 **Done:**
 - Video upload + MediaPipe pose extraction
 - Pull-up and push-up form analysis (angle-based, structured feedback cards)
+- Rep counting with smoothed signal (window=11) + de-duplicated phase events to prevent overcounting
 - Supabase: schema (4 tables), RLS policies, storage buckets (demo-videos, unlock-videos)
 - Auth: login, signup, session persistence via AuthContext
 - Muscle map skill tree landing page (interactive SVG at /skill-tree)
 - Track pages at /track/:trackId — column-based skill tree with real Supabase data, locked/unlockable/unlocked states, H-branch SVG connectors
-- SkillNode component (3 visual states) + SkillModal (skill info, filming instructions, disabled upload button)
+- SkillNode component (3 visual states) + SkillModal (skill info, filming instructions, upload button)
+- Full upload flow: file picker → uploading state with video preview → MediaPipe skeleton overlay on result → pass/fail verdict → feedback cards
+- Supabase writes on attempt: skill_attempts (always), user_skills + Storage upload (on pass)
+- Skill node flips to unlocked immediately after pass (local state + persisted to DB)
+- Reopening an unlocked skill shows the user's own unlock video + option to re-attempt
+- Sign-in banner for unauthenticated users (upload still works, results not saved)
 
 **Next:**
-- Skill-specific upload flow: wire SkillModal "Upload attempt" button to backend form analysis
-- Pass/fail result → write to user_skills + skill_attempts in Supabase
-- Skill node updates to unlocked state after successful upload
+- Deployment: frontend to Vercel, backend to Railway or Render
 
 ## Project structure (current)
 
@@ -110,19 +114,19 @@ calisthenics-coach/
 ## User flow
 
 1. User lands on the skill tree — four tracks (push, pull, legs, core), each a vertical chain of skill nodes
-2. Locked skills show a demo video; skills with unmet prerequisites are greyed out
-3. User clicks an unlockable skill → modal opens with skill info and an upload button
+2. Skills with unmet prerequisites are greyed out (locked); skills whose prerequisites are met are unlockable
+3. User clicks an unlockable skill → modal opens with skill info, filming instructions, and an upload button
 4. User uploads a video → backend runs MediaPipe + form analysis against that skill's specific criteria
-5. Pass → skill marked unlocked, user's video saved to Supabase Storage, node now shows their video
-6. Fail → Claude API feedback shown, user can try again
+5. Pass → skill flips to unlocked, user's video saved to Supabase Storage; user can rewatch it by clicking the node again
+6. Fail → structured feedback cards shown (one per form check, each pass or fail); user can try again
 
 ## MVP features
 
 1. **Skill tree UI** — RPG-style visual map with four tracks: push, pull, legs, core
 2. **User accounts** — Supabase auth; all progress and videos tied to a user
 3. **Video upload + pose extraction + form feedback** — user uploads a video for a specific skill; before uploading, the skill node shows filming instructions (e.g. "film from the side, full body in frame") to ensure accurate landmark detection. Backend runs MediaPipe and returns structured feedback cards (one per form check, each pass or fail). While the video is processing, the frontend displays the uploaded video with the MediaPipe skeleton overlay rendered on top.
-4. **Pass/fail unlock verdict** — a skill is unlocked if and only if every form check card returns pass. The set of checks that run is determined by which skill is being attempted (e.g. pull-up checks for a pull-up skill). Claude API provides narrative feedback text alongside the cards.
-5. **Video storage** — unlock video saved to Supabase Storage, replaces demo video on the node
+4. **Pass/fail unlock verdict** — a skill is unlocked if and only if every form check card returns pass. The set of checks that run is determined by which skill is being attempted (e.g. pull-up checks for a pull-up skill).
+5. **Video storage** — unlock video saved to Supabase Storage; user can reopen the skill node at any time to rewatch it
 
 ## Database schema
 
@@ -152,8 +156,10 @@ calisthenics-coach/
 - `attempted_at` (timestamp)
 - On pass: write attempt row, then update `user_skills` to `"unlocked"` and copy `video_url` there
 
-## Out of scope for MVP
+## Stretch goals (post-MVP)
 
+- **Claude API narrative feedback** — LLM-generated paragraph summarising the attempt alongside the structured cards
+- **Demo videos on skill nodes** — developer-filmed demo video plays on each locked skill; replaced by the user's own video on unlock
 - Real-time webcam analysis
 - Mobile app
 - Social features

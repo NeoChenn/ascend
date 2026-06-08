@@ -346,56 +346,112 @@ The developer (me) may not have filmed the demo for every skill before launch. N
 
 ---
 
-## Step 8 — Skill tree UI + data layer
+## Step 8 — Skill tree UI, upload flow, and skeleton overlay
 *Date: June 2026*
 
 ### What I built
+
+**Skill tree UI (data layer):**
 - Designed and seeded the full 20-skill tree across 4 tracks in Supabase (push, pull, core, legs), including prerequisite relationships in `skill_prerequisites`
 - `SkillNode` component — card with 3 visual states: locked (muted, padlock icon), unlockable (track-colour border + glow, clickable), unlocked (track-colour fill, checkmark). Shows "Requires: X" on locked cards.
-- `SkillModal` component — opens when clicking an unlockable node; shows skill name, description, filming instructions from Supabase, and a disabled "Upload attempt" button (wired in next step)
-- `TrackPage` — fetches skills, prerequisites, and user's unlocked skills from Supabase; computes locked/unlockable/unlocked state for each skill; renders a column-based prerequisite tree with H-shaped SVG connectors
+- `SkillModal` component — opens when clicking a skill node; shows name, description, filming instructions from Supabase, and an upload button
+- `TrackPage` — fetches skills, prerequisites, and the user's unlocked skills from Supabase; computes locked/unlockable/unlocked state for each skill; renders a column-based prerequisite tree with H-shaped SVG connectors
+
+**Upload flow (end-to-end):**
+- Wired SkillModal's "Upload attempt" button to the backend `/upload` endpoint with a 4-state machine: `idle → uploading → result → error`
+- `uploading` state: shows the selected video immediately via `URL.createObjectURL` (a local blob URL — no upload needed to play it), plus a pulsing "Analysing…" message while the backend processes
+- `result` state: shows the video with the MediaPipe skeleton overlay rendered on top via a `<canvas>` element absolutely positioned over the `<video>` element; shows pass/fail verdict banner, rep count, and a feedback card per check; "Try again" button appears only on fail
+- Pass/fail verdict computed on the frontend using `skill.pass_threshold` from Supabase (a float 0–1) — this makes the pass threshold configurable per skill without code changes
+- Sign-in banner for guests: amber-tinted notice above the upload button when no user is logged in ("Sign in to save your progress"). Upload still works — guests see feedback but nothing is persisted.
+
+**Skeleton overlay:**
+- `drawSkeleton()` function draws joint dots (white, cyan border) and connecting lines (cyan) onto a `<canvas>` using the `landmarks_per_frame` array returned by the backend
+- A `requestAnimationFrame` draw loop runs continuously once the result is available; each frame maps the video's current time → landmark frame index proportionally across the video's duration
+- Canvas intrinsic size is kept in sync with the video's rendered size via `getBoundingClientRect()` — without this the canvas would use its default 300×150 and the skeleton would be drawn at the wrong scale
+- `pointer-events: none` on the canvas so video controls under it remain clickable
+
+**Supabase writes (frontend-owned):**
+- `TrackPage.handleAttemptComplete` writes to Supabase after every attempt:
+  - On pass: uploads the video file to `unlock-videos` storage bucket (path `{userId}/{skillId}.mp4`, overwritten on re-attempt), retrieves the public URL, inserts a `skill_attempts` row (`passed: true`, full feedback JSON, `video_url`), upserts `user_skills` (`status: "unlocked"`, `unlock_video_url`, `unlocked_at`), then updates local React state so the node flips to unlocked instantly without a page reload
+  - On fail: inserts a `skill_attempts` row (`passed: false`, feedback JSON, no video URL)
+- `user_skills` query extended to also fetch `unlock_video_url` and store it in a map — passed to SkillModal so reopening an unlocked skill shows the user's own video at the top of the modal
+
+**Unlocked skill modal:**
+- Both unlockable and unlocked nodes are now clickable (previously unlocked nodes had no `onClick`)
+- When reopening an unlocked skill, the modal shows the user's own unlock video in a "Your unlock attempt" section, with filming instructions and the upload button still available below for re-attempts
+
+**Rep counting fix:**
+- Increased smoothing window in both `pull_up.py` and `push_up.py` from 5 to 11 frames — at 30 fps, window=5 only covers ~0.17s, not enough to remove inter-frame landmark jitter
+- Added de-duplication of consecutive same-type phase events: merge all bottom/top events into a single time-sorted sequence, then if two bottoms appear in a row (or two tops), keep only the later one. This prevents noise at the turning points from generating phantom reps.
 
 ### What broke / what was hard
-- **"permission denied for table skills" (Supabase code 42501)** — the `skills` and `skill_prerequisites` tables showed "API DISABLED" in the Supabase dashboard. This wasn't an RLS issue — it was a Data API exposure setting. Fixed via: Project Settings → API → Data API → confirm `public` schema is listed in Exposed schemas.
-- **Connector lines pointing at the wrong node** — first attempt used a tier-based layout (grouping skills by depth). This drew a single H-connector spanning a whole row, so Straddle Planche, Handstand Push-up, and One-arm Push-up all shared one connector even though their prerequisites are in different columns. Fixed by switching to a column-based layout.
-- **Duplicate nodes in the tree (Explosive Pull-up × 3)** — the initial column-building algorithm traced from each leaf back to the root. When a skill has multiple children (Explosive Pull-up → Muscle-up, Straddle FL, Archer Pull-up), it appeared once per leaf path. Fixed by walking forward from the root to the branch node first, then building chains only from that node's direct children upward — so shared ancestors appear exactly once.
+
+**"permission denied for table skills" (Supabase code 42501):**
+The `skills` and `skill_prerequisites` tables showed "API DISABLED" in the Supabase dashboard. Not an RLS issue — it was a Data API exposure setting. Fixed via: Project Settings → API → Data API → confirm `public` schema is listed in Exposed schemas.
+
+**Connector lines pointing at the wrong node:**
+First attempt used a tier-based layout (grouping skills by depth). This drew a single H-connector spanning a whole row, so Straddle Planche, Handstand Push-up, and One-arm Push-up all shared one connector even though their prerequisites are in different columns. Fixed by switching to a column-based layout.
+
+**Duplicate nodes in the tree (Explosive Pull-up × 3):**
+The initial column-building algorithm traced from each leaf back to the root. When a skill has multiple children, it appeared once per leaf path. Fixed by walking forward from the root to the branch node first, then building chains only from that node's direct children upward — shared ancestors appear exactly once.
+
+**MIME type typo in unlock-videos bucket:**
+Storage uploads were rejected with error `"mime type video/mp4 is not supported"`. The root cause was a typo in the bucket's `allowed_mime_types` array: `"ideo/mp4"` (missing the `v`). Fixed via Supabase SQL editor: `UPDATE storage.buckets SET allowed_mime_types = ARRAY['video/mp4', 'video/quicktime', 'video/webm'] WHERE name = 'unlock-videos'`.
+
+**Unlock video not playing — 403 error in DevTools:**
+After a pass, the skill's video was empty and DevTools showed a 403 on the video URL. The `unlock-videos` bucket was private, and `supabase.storage.getPublicUrl()` generates a URL without any auth token. A browser `<video>` element fetches the URL with no Supabase auth headers, so Supabase Storage's RLS rejected it. Fixed by making the bucket public: `UPDATE storage.buckets SET public = true WHERE name = 'unlock-videos'`.
+
+**Rep counter returning 3 for a single rep:**
+MediaPipe landmark positions jitter ±5° frame-to-frame even on a stationary position. With window=5 smoothing, this noise survived into the local extrema search and created multiple fake phase transitions per rep. Widening the window to 11 and de-duplicating consecutive same-type events reduced false reps to zero for a single-rep test.
 
 ### What I learned
 
 **Graph traversal for UI layout:**
-The skill prerequisite structure is a DAG (directed acyclic graph). Rendering it correctly as a visual tree required:
-1. Finding the root (skill with no in-track prerequisites)
-2. Walking single-child links upward to find the "branch node" — the first skill with more than one child
-3. Building one independent column per branch node child, tracing each up to its leaf
-
-This is essentially a BFS/DFS with a stop condition. The key insight is that building chains from the root downward (not from leaves upward) prevents shared ancestors from being duplicated.
+The skill prerequisite structure is a DAG (directed acyclic graph). Rendering it correctly as a visual tree required: (1) finding the root (skill with no in-track prerequisites), (2) walking single-child links upward to find the "branch node" — the first skill with more than one child, (3) building one independent column per branch-node child, tracing each up to its leaf. The key insight is that building chains from the root downward (not from leaves upward) prevents shared ancestors from being duplicated.
 
 **SVG for dynamic connector lines:**
-Used inline SVG to draw the H-shaped connectors between the branch node and the column tops. The SVG width is computed as `columnCount × 200 + (columnCount - 1) × 16` — the constants must match the CSS column width and gap exactly, otherwise the lines don't line up with the nodes.
+Used inline SVG to draw the H-shaped connectors. The SVG width is computed as `columnCount × 200 + (columnCount - 1) × 16` — these constants must match the CSS column width and gap exactly, otherwise the lines don't align with the nodes.
 
 **CSS flex alignment gotcha:**
-A 2px-wide connector `<div>` left-aligns if it's nested inside a wrapper `<div>`, even if the parent column has `align-items: center`. Fix: use `flatMap` to make connector divs direct flex children of the `.column` container rather than wrapping each node + connector in a div. With direct children, `align-items: center` actually centres the line on the node.
+A 2px-wide connector `<div>` left-aligns if it's nested inside a wrapper `<div>`, even if the parent column has `align-items: center`. Fix: use `flatMap` to make connector divs direct flex children of the column container rather than wrapping each node+connector in a div. With direct children, `align-items: center` actually centres the line on the node.
+
+**`URL.createObjectURL` for instant video preview:**
+When the user selects a file, the browser already has the file data in memory. `URL.createObjectURL(file)` creates a temporary `blob:` URL pointing to that in-memory data — the `<video>` element can play it immediately, with no upload required. The URL must be revoked with `URL.revokeObjectURL` when no longer needed to release the memory reference.
+
+**`requestAnimationFrame` for canvas overlay:**
+To keep the skeleton overlay in sync with the video as it plays or is scrubbed, a draw loop runs continuously using `requestAnimationFrame`. Each tick: read `video.currentTime`, map it to a landmark frame index proportionally, call `drawSkeleton`. The canvas intrinsic dimensions must be kept in sync with the video's rendered pixel size — `getBoundingClientRect()` gives the rendered size, which changes with viewport resizing. The loop is started/stopped via `useEffect` cleanup to avoid memory leaks.
+
+**Supabase Storage: public vs private buckets:**
+A private bucket requires the request to include an auth token (as a query param or header). A browser `<video src="...">` element sends a plain HTTP request with no Supabase auth headers, so private bucket URLs always 403. The right pattern is: public bucket (URL is cacheable by CDN, no auth overhead) + Storage RLS for writes (users can only upload to their own folder). Read access without auth is fine for user videos in this context since the URLs are not guessable.
+
+**Why Supabase writes live on the frontend:**
+When a Supabase JS client runs in the browser, it automatically attaches the user's JWT (from their active session) to every request. This means database RLS policies apply naturally — no extra work to scope writes to the current user. If the writes were on the backend instead, the backend would need to either receive the JWT from the frontend and create a user-scoped client per request, or use the service role key (which bypasses all RLS and is a security risk). Keeping writes on the frontend is simpler and safer.
+
+**De-duplication of signal events:**
+Merge all detected events into one time-sorted list (`[(index, "bottom"), (index, "top"), ...]`), then walk through it. If two consecutive events are the same type ("bottom, bottom"), replace the first with the second (keep the later, more committed one). The result is a strictly alternating sequence, which is the correct structure for pairing bottom→top rep cycles.
 
 ### Decisions made
 
 **Column-based layout over tier-based:**
-Tier-based layout (grouping skills by depth) was simpler to implement but visually incorrect — one H-connector spanning an entire row regardless of actual prerequisites. Column-based layout requires more graph analysis but draws correct connectors where every skill visually connects directly to its prerequisite. The added complexity is justified because the accurate visual is the whole point of a skill tree.
+Tier-based (grouping skills by depth) is simpler but visually incorrect — one H-connector spanning an entire row regardless of actual prerequisites. Column-based requires more graph analysis but draws correct connectors where every skill connects visually to its own prerequisite. The added complexity is justified because accurate prereq connections are the whole point of a skill tree.
 
 **20 skills across 4 tracks — exercise selection:**
-As an advanced calisthenics practitioner, I chose exercises that form genuine biomechanical progression chains. The handstand is a prerequisite for the handstand push-up because you cannot press overhead without first controlling the balance; bent arm planche work is a prerequisite for full planche because you need to build the straight-arm strength progressively. The domain knowledge makes every prerequisite edge defensible in an interview rather than arbitrary.
+As an advanced calisthenics practitioner, I chose exercises that form genuine biomechanical progression chains. The handstand is a prerequisite for the handstand push-up because you cannot press overhead without first controlling the balance. The domain knowledge makes every prerequisite edge defensible in an interview rather than arbitrary.
 
-**Unique `order_in_track` values for left-to-right column ordering:**
-Within a row of branches, left-to-right order is controlled by `order_in_track` in Supabase. Using unique values (rather than the same value for same-depth skills) makes ordering deterministic — PostgreSQL does not guarantee a stable order for ties, so shared values caused non-deterministic rendering.
+**Unique `order_in_track` for left-to-right column ordering:**
+Within a row of branches, left-to-right order is controlled by `order_in_track` in Supabase. Using unique values makes ordering deterministic — PostgreSQL does not guarantee stable ordering for ties, so shared values caused non-deterministic rendering.
+
+**Frontend owns all Supabase writes:**
+See "What I learned" above. The backend stays as a pure stateless analysis API — it takes a video, returns JSON, knows nothing about users or database state.
+
+**`pass_threshold` is stored per skill in the database:**
+Rather than hardcoding "all checks must pass" in the frontend, the threshold is a float (0–1) on the `skills` table. This allows skills to be more lenient than 100% (e.g., 0.75 means 3 of 4 checks must pass) without any code change — just update the value in Supabase.
+
+**Stretch goals deferred: Claude API feedback + demo videos on nodes:**
+Originally in the MVP plan. Both were cut to scope: Claude API integration adds latency and cost without changing the pass/fail verdict, and filming demo videos for 20 skills is significant one-time work that isn't needed to demonstrate the core loop. Both are tracked as stretch goals for post-MVP.
 
 ### What's next
-- Wire the "Upload attempt" button in SkillModal to the backend form analysis
-- Pass/fail result → write to `user_skills` and `skill_attempts` in Supabase
-- Skill node updates to unlocked state after a successful upload
-- "Sign in to save" prompt for guest users who pass
-- Skeleton overlay: render the MediaPipe landmark positions on top of the uploaded video while it processes, so the user can see what the backend is analysing
-- Film and upload demo videos for all skill nodes (all `demo_video_url` fields are currently null in Supabase)
-- Attempt history: surface the `skill_attempts` table in the UI — show past tries per skill with the feedback JSON, so users can see which specific checks they failed and track improvement over time
-- Edge case UX: handle gracefully when MediaPipe detects no pose (person too far away, poor lighting, wrong angle) — return a clear "we couldn't detect a pose — check your filming setup" message rather than empty feedback or a silent crash
+- Deployment: frontend to Vercel, backend to Railway or Render
 
 ---
 
