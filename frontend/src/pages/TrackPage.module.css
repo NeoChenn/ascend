@@ -29,32 +29,32 @@
   margin-bottom: 0;
 }
 
-/* Outer wrapper for the whole skill chain */
+/* Outer wrapper — root sits at the bottom, columns grow upward */
 .chain {
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
   align-items: center;
   margin-top: 2.5rem;
 }
 
-/* Wrapper for one tier + its connector line.
-   column-reverse puts the connector at the visual bottom of the group,
-   so it sits between this tier and the parent tier below it. */
-.tierGroup {
+/* One row of columns, bottoms aligned so the H-connector touches each column base */
+.columnsWrapper {
   display: flex;
-  flex-direction: column-reverse;
-  align-items: center;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 16px; /* must equal NODE_GAP constant in renderBranchSVG */
 }
 
-/* Thin vertical line for single-node tiers */
+/* One vertical branch — skills stacked leaf-to-bottom, connectors centered */
+.column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 200px; /* must equal NODE_WIDTH constant in renderBranchSVG */
+}
+
+/* Thin vertical line connecting adjacent skills in a column, or a single-branch trunk */
 .connector {
   width: 2px;
   height: 3rem;
-}
-
-/* One horizontal row of skill nodes (multiple = a branch) */
-.tier {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
 }
