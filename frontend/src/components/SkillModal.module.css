@@ -1,6 +1,6 @@
 .backdrop {
   position: fixed;
-  inset: 0; /* shorthand for top/right/bottom/left all = 0 */
+  inset: 0;
   background: rgba(0, 0, 0, 0.75);
   display: flex;
   align-items: center;
@@ -16,6 +16,8 @@
   padding: 2rem;
   width: 100%;
   max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
   margin: 1rem;
 }
 
@@ -34,6 +36,11 @@
 
 .closeButton:hover {
   color: #f0f0f0;
+}
+
+.closeButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.3;
 }
 
 .title {
@@ -72,6 +79,26 @@
   line-height: 1.6;
 }
 
+.authBanner {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.85rem;
+  color: #c0c0c0;
+  margin-bottom: 0.75rem;
+}
+
+.authBanner a {
+  color: #f59e0b;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.authBanner a:hover {
+  text-decoration: underline;
+}
+
 .uploadButton {
   width: 100%;
   padding: 0.75rem;
@@ -80,6 +107,170 @@
   font-size: 1rem;
   font-weight: 600;
   color: #fff;
+  cursor: pointer;
+}
+
+.uploadButton:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+  background: #333 !important;
+}
+
+/* ── Uploading state ── */
+
+.previewSection {
+  margin-bottom: 1.5rem;
+}
+
+/* videoWrapper gives the skeleton canvas a positioned ancestor.
+   The wrapper height is set by the video element inside it. */
+.videoWrapper {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.skeletonCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* clicks pass through to video controls */
+}
+
+.videoPreview {
+  width: 100%;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  background: #000;
+  display: block; /* removes inline bottom gap that would misalign the canvas */
+}
+
+.analysingText {
+  text-align: center;
+  color: #a0a0a0;
+  font-size: 0.9rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+
+/* ── Result state ── */
+
+.resultSection {
+  margin-bottom: 1rem;
+}
+
+.verdictPass {
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid #34d399;
+  color: #34d399;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.verdictFail {
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid #f87171;
+  color: #f87171;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.repCount {
+  color: #666;
+  font-size: 0.8rem;
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+
+.narrative {
+  font-size: 0.9rem;
+  color: #c0c0c0;
+  line-height: 1.65;
+  font-style: italic;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: #111;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+}
+
+.checkList {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.25rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.checkPass {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  background: rgba(52, 211, 153, 0.07);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #c0c0c0;
+}
+
+.checkFail {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  background: rgba(248, 113, 113, 0.07);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #c0c0c0;
+}
+
+.checkPass .checkIcon {
+  color: #34d399;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.checkFail .checkIcon {
+  color: #f87171;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.retryButton {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  background: #111;
+  color: #a0a0a0;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.retryButton:hover {
+  color: #f0f0f0;
+  border-color: #444;
+}
+
+/* ── Error state ── */
+
+.errorSection {
+  text-align: center;
+  color: #f87171;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
 }

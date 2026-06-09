@@ -2,6 +2,7 @@ from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from services.analysis import analyse_pull_up, analyse_push_up
+from services.llm_service import generate_narrative_feedback
 from services.pose_service import extract_landmarks_from_video
 
 app = FastAPI()
@@ -39,4 +40,8 @@ async def upload(file: UploadFile = File(...), exercise: str = Form(...)):
     else:
         feedback = analyse_pull_up(pose_data["landmarks_per_frame"])
 
-    return {"filename": file.filename, **pose_data, "feedback": feedback}
+    # Narrative is generated after analysis so the checks array is already available.
+    # Returns None on failure — the frontend handles both cases gracefully.
+    narrative = generate_narrative_feedback(exercise, feedback["checks"])
+
+    return {"filename": file.filename, **pose_data, "feedback": feedback, "narrative": narrative}

@@ -157,7 +157,8 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
         passed,
         checks,
         repCount:  data.feedback.rep_count,
-        landmarks: data.landmarks_per_frame,  // used by the skeleton draw loop
+        narrative: data.narrative ?? null,     // LLM coaching paragraph; null if API failed
+        landmarks: data.landmarks_per_frame,   // used by the skeleton draw loop
       })
       setUploadState('result')
       onAttemptComplete(skill.id, passed, checks, file)
@@ -222,6 +223,12 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
             <p className={styles.repCount}>
               {result.repCount} rep{result.repCount !== 1 ? 's' : ''} detected
             </p>
+
+            {/* LLM coaching paragraph — omitted if the Gemini API call failed */}
+            {result.narrative && (
+              <p className={styles.narrative}>{result.narrative}</p>
+            )}
+
             <ul className={styles.checkList}>
               {result.checks.map(check => (
                 <li
