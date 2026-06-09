@@ -455,6 +455,52 @@ Originally in the MVP plan. Both were cut to scope: Claude API integration adds 
 
 ---
 
+## Step 8b — Demo videos + clickable locked nodes (stretch goal)
+*Date: June 2026*
+
+### What I built
+- All three skill node states (locked, unlockable, unlocked) now open the skill modal on click — previously locked nodes did nothing when clicked
+- `SkillModal` accepts a new `skillState` prop (`'locked' | 'unlockable' | 'unlocked'`) and renders differently for each state:
+  - **Locked**: shows demo video (if `demo_video_url` is set), no filming instructions, a disabled "Locked" button
+  - **Unlockable**: shows demo video (if set) above filming instructions, active upload button — existing behaviour preserved
+  - **Unlocked**: shows user's own stored video, filming instructions, upload button for re-attempt — existing behaviour preserved
+- `demo_video_url` is already a column on the `skills` table and is read directly from the Supabase row — no schema changes required
+- The `demo-videos` storage bucket already existed as public from Step 7 — no infrastructure changes required
+- Adding a demo video for any skill requires no code: upload to Supabase Storage → copy public URL → paste into `demo_video_url` for that skills row
+
+### What broke / what was hard
+Nothing broke. The key insight was that everything needed was already in place — the DB column, the public bucket, and the `getSkillState()` function in `TrackPage` that already computed `'locked' | 'unlockable' | 'unlocked'`. The change was purely about threading that value into `SkillModal` and branching the render logic on it.
+
+### What I learned
+
+**Prop drilling a computed value vs re-deriving it:**
+`getSkillState(skill)` already existed in `TrackPage` and was used to set visual styles on each `SkillNode`. Rather than duplicating the locked/unlockable/unlocked logic inside `SkillModal`, the cleaner approach is to compute it once at the source (TrackPage, which owns the data) and pass it down. `SkillModal` shouldn't need to know about `unlockedIds` or prerequisite maps — it just needs to know the state it's displaying. This is the principle of "lift state, not logic" — the data lives where it's computed, and components further down the tree receive only what they need.
+
+**Conditional rendering with three states:**
+When a component has three meaningfully different appearances (not just "show or hide"), the clearest pattern is explicit state comparisons rather than boolean flags:
+```jsx
+{skillState === 'unlocked' && ...}   // exact match for one case
+{skillState !== 'unlocked' && ...}   // everything else
+{skillState === 'locked' ? ... : ...}  // branch between locked and non-locked
+```
+This is more readable than `isLocked`, `isUnlocked`, `isUnlockable` boolean props — you'd need to handle the impossible case where two are true simultaneously, and the JSX becomes harder to follow.
+
+### Decisions made
+
+**Show demo video for unlockable state too, not just locked:**
+The demo video is "here's what the skill looks like when done correctly." A user who is about to attempt the skill benefits from watching it just as much as a user who can't attempt it yet. Hiding the demo from unlockable nodes would mean it disappears the moment a prerequisite is met, which is the wrong time to remove it.
+
+**No filming instructions for locked skills:**
+Showing filming instructions ("film from the side, full body visible") to someone who cannot attempt a skill yet is noise — it creates the false impression that they're about to do something. Hiding it keeps the locked modal focused: "here's what this skill is, here's what it looks like, come back when you've unlocked the prerequisites."
+
+**`demo_video_url` null-safety is implicit:**
+The demo video section only renders when `skill.demo_video_url` is truthy. No special handling is needed for skills without a demo video yet — the section simply doesn't appear. This means skills can be added to Supabase and filmed at different times without any "placeholder" state needed in the UI.
+
+### What's next
+- Deployment: frontend to Vercel, backend to Railway or Render
+
+---
+
 ## Step 9 — Deployment + polish
 *Date: Late August 2026*
 
