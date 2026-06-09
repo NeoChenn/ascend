@@ -208,12 +208,6 @@ export default function TrackPage() {
     return 'locked'
   }
 
-  // A leaf skill is one that no other skill in this track requires as a prerequisite.
-  // These are the hardest/pinnacle skills at the top of each chain.
-  const requiredByOthers = new Set(Object.values(prereqMap).flat())
-  function isLeaf(skillId) {
-    return !requiredByOthers.has(skillId)
-  }
 
   // Analyse the tree and return a layout description.
   //
@@ -353,7 +347,6 @@ export default function TrackPage() {
         skill={skill}
         state={getSkillState(skill)}
         trackColor={color}
-        isLeaf={isLeaf(skill.id)}
         triggerUnlockAnim={justUnlockedId === skill.id}
         onClick={() => setSelectedSkill(skill)}
       />

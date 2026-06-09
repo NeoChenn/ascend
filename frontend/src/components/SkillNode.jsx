@@ -52,11 +52,10 @@ const SKILL_ICONS = {
 
 // state:             'locked' | 'unlockable' | 'unlocked'
 // trackColor:        hex colour for this track (e.g. '#f59e0b' for push)
-// isLeaf:            true for pinnacle skills (nothing else requires them) — renders as diamond
 // triggerUnlockAnim: set true by TrackPage for one render-cycle after the modal
 //                    closes following a pass — fires the burst animation
 // onClick:           always fires — all states open the modal
-export default function SkillNode({ skill, state, trackColor, isLeaf = false, triggerUnlockAnim = false, onClick }) {
+export default function SkillNode({ skill, state, trackColor, triggerUnlockAnim = false, onClick }) {
   const isUnlocked   = state === 'unlocked'
   const isUnlockable = state === 'unlockable'
 
@@ -71,11 +70,11 @@ export default function SkillNode({ skill, state, trackColor, isLeaf = false, tr
     backgroundColor: isUnlocked ? trackColor : undefined,
     color:           isUnlocked ? 'white' : isUnlockable ? trackColor : undefined,
     filter: triggerUnlockAnim
-      ? `drop-shadow(0 0 12px ${trackColor}) drop-shadow(0 0 24px ${trackColor}99)`
+      ? `drop-shadow(0 0 14px ${trackColor}) drop-shadow(0 0 32px ${trackColor}cc)`
       : isUnlocked
-      ? `drop-shadow(0 0 5px ${trackColor}) drop-shadow(0 0 14px ${trackColor}99) drop-shadow(0 0 28px ${trackColor}44)`
+      ? `drop-shadow(0 0 8px ${trackColor}) drop-shadow(0 0 20px ${trackColor}cc) drop-shadow(0 0 40px ${trackColor}77)`
       : isUnlockable
-      ? `drop-shadow(0 0 6px ${trackColor}66)`
+      ? `drop-shadow(0 0 8px ${trackColor}88)`
       : undefined,
   }
 
@@ -85,7 +84,7 @@ export default function SkillNode({ skill, state, trackColor, isLeaf = false, tr
       onClick={onClick}
     >
       <div
-        className={`${styles.circle} ${isLeaf ? styles.leaf : ''} ${triggerUnlockAnim ? styles.justUnlocked : ''}`}
+        className={`${styles.circle} ${triggerUnlockAnim ? styles.justUnlocked : ''}`}
         style={circleStyle}
       >
         <Icon className={styles.skillIcon} />
