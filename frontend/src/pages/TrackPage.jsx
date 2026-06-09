@@ -30,6 +30,7 @@ export default function TrackPage() {
   // skillMap: { skillId: skill } — used to look up a skill by ID
   const [skillMap, setSkillMap] = useState({})
   const [unlockedIds, setUnlockedIds] = useState(new Set())
+  const [unlockedVideoMap, setUnlockedVideoMap] = useState({})  // { skillId: unlock_video_url }
   const [loading, setLoading] = useState(true)
   const [selectedSkill, setSelectedSkill] = useState(null)
 
@@ -74,10 +75,15 @@ export default function TrackPage() {
       if (user) {
         const { data: userSkillData } = await supabase
           .from('user_skills')
-          .select('skill_id')
+          .select('skill_id, unlock_video_url')
           .eq('user_id', user.id)
           .eq('status', 'unlocked')
         unlocked = new Set((userSkillData ?? []).map(us => us.skill_id))
+        const videoMap = {}
+        for (const us of userSkillData ?? []) {
+          videoMap[us.skill_id] = us.unlock_video_url
+        }
+        setUnlockedVideoMap(videoMap)
       }
 
       setSkills(skillData)
@@ -89,6 +95,66 @@ export default function TrackPage() {
 
     loadTrack()
   }, [trackId, user, label])
+
+  // Called by SkillModal after the backend returns an analysis result.
+  // Writes the attempt to Supabase and, on pass, uploads the video and unlocks the skill.
+  async function handleAttemptComplete(skillId, passed, feedbackChecks, videoFile) {
+    if (!user) return
+
+    if (passed) {
+      // Store the unlock video in the 'unlock-videos' bucket.
+      // Path: <userId>/<skillId>.mp4  — one file per skill per user, overwritten on retry.
+      const path = `${user.id}/${skillId}.mp4`
+      const { error: storageError } = await supabase.storage
+        .from('unlock-videos')
+        .upload(path, videoFile, { upsert: true })
+
+      if (storageError) {
+        console.error('Video upload to storage failed:', storageError)
+        return
+      }
+
+      const { data: urlData } = supabase.storage.from('unlock-videos').getPublicUrl(path)
+      const videoUrl = urlData.publicUrl
+
+      const { error: attemptError } = await supabase.from('skill_attempts').insert({
+        user_id: user.id,
+        skill_id: skillId,
+        passed: true,
+        feedback: feedbackChecks,
+        video_url: videoUrl,
+        attempted_at: new Date().toISOString(),
+      })
+      if (attemptError) console.error('skill_attempts insert failed:', attemptError)
+
+      // upsert: insert if no row exists, update if one does (user re-attempts after unlock)
+      const { error: userSkillError } = await supabase.from('user_skills').upsert(
+        {
+          user_id: user.id,
+          skill_id: skillId,
+          status: 'unlocked',
+          unlock_video_url: videoUrl,
+          unlocked_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,skill_id' }
+      )
+      if (userSkillError) console.error('user_skills upsert failed:', userSkillError)
+
+      // Update local state immediately so the skill node flips without a page reload
+      setUnlockedIds(prev => new Set([...prev, skillId]))
+      setUnlockedVideoMap(prev => ({ ...prev, [skillId]: videoUrl }))
+    } else {
+      const { error: attemptError } = await supabase.from('skill_attempts').insert({
+        user_id: user.id,
+        skill_id: skillId,
+        passed: false,
+        feedback: feedbackChecks,
+        attempted_at: new Date().toISOString(),
+      })
+      if (attemptError) console.error('skill_attempts insert failed:', attemptError)
+      // No user_skills update on fail — unlockable status is driven by prerequisites, not attempts
+    }
+  }
 
   function getSkillState(skill) {
     if (unlockedIds.has(skill.id)) return 'unlocked'
@@ -317,8 +383,12 @@ export default function TrackPage() {
 
       <SkillModal
         skill={selectedSkill}
+        skillState={selectedSkill ? getSkillState(selectedSkill) : 'locked'}
         trackColor={color}
+        user={user}
+        unlockVideoUrl={unlockedVideoMap[selectedSkill?.id] ?? null}
         onClose={() => setSelectedSkill(null)}
+        onAttemptComplete={handleAttemptComplete}
       />
     </main>
   )
