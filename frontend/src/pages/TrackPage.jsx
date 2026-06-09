@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../context/AuthContext'
@@ -33,6 +33,10 @@ export default function TrackPage() {
   const [unlockedVideoMap, setUnlockedVideoMap] = useState({})  // { skillId: unlock_video_url }
   const [loading, setLoading] = useState(true)
   const [selectedSkill, setSelectedSkill] = useState(null)
+  // Drives the unlock burst animation on the node — set when the modal closes after a pass.
+  const [justUnlockedId, setJustUnlockedId] = useState(null)
+  // Tracks whether a pass happened during the current modal session (ref = no re-render).
+  const lastUnlockedInModalRef = useRef(null)
 
   const label = TRACK_LABELS[trackId]
   const color = TRACK_COLORS[trackId]
@@ -140,9 +144,11 @@ export default function TrackPage() {
       )
       if (userSkillError) console.error('user_skills upsert failed:', userSkillError)
 
-      // Update local state immediately so the skill node flips without a page reload
+      // Update local state immediately so the skill node flips without a page reload.
+      // Also record the id so handleClose can fire the animation once the modal closes.
       setUnlockedIds(prev => new Set([...prev, skillId]))
       setUnlockedVideoMap(prev => ({ ...prev, [skillId]: videoUrl }))
+      lastUnlockedInModalRef.current = skillId
     } else {
       const { error: attemptError } = await supabase.from('skill_attempts').insert({
         user_id: user.id,
@@ -156,17 +162,23 @@ export default function TrackPage() {
     }
   }
 
+  // Called when the modal is dismissed. If a pass happened during this session,
+  // fire the node's unlock burst animation now that the modal is out of the way.
+  function handleClose() {
+    const unlockedSkillId = lastUnlockedInModalRef.current
+    lastUnlockedInModalRef.current = null
+    setSelectedSkill(null)
+    if (unlockedSkillId) {
+      setJustUnlockedId(unlockedSkillId)
+      setTimeout(() => setJustUnlockedId(null), 700)
+    }
+  }
+
   function getSkillState(skill) {
     if (unlockedIds.has(skill.id)) return 'unlocked'
     const prereqs = prereqMap[skill.id] ?? []
     const allMet = prereqs.every(reqId => unlockedIds.has(reqId))
     return allMet ? 'unlockable' : 'locked'
-  }
-
-  function getPrerequisiteName(skill) {
-    const prereqs = prereqMap[skill.id] ?? []
-    if (prereqs.length === 0) return null
-    return skillMap[prereqs[0]]?.name ?? null
   }
 
   // Analyse the tree and return a layout description.
@@ -304,7 +316,7 @@ export default function TrackPage() {
         skill={skill}
         state={getSkillState(skill)}
         trackColor={color}
-        prerequisiteName={getPrerequisiteName(skill)}
+        triggerUnlockAnim={justUnlockedId === skill.id}
         onClick={() => setSelectedSkill(skill)}
       />
     )
@@ -387,7 +399,7 @@ export default function TrackPage() {
         trackColor={color}
         user={user}
         unlockVideoUrl={unlockedVideoMap[selectedSkill?.id] ?? null}
-        onClose={() => setSelectedSkill(null)}
+        onClose={handleClose}
         onAttemptComplete={handleAttemptComplete}
       />
     </main>

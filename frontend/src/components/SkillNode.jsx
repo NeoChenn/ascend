@@ -1,4 +1,3 @@
-import { useState, useRef, useEffect } from 'react'
 import styles from './SkillNode.module.css'
 import {
   PushUpIcon,
@@ -51,25 +50,14 @@ const SKILL_ICONS = {
   'Pistol Squat':          PistolSquatIcon,
 }
 
-// state: 'locked' | 'unlockable' | 'unlocked'
-// trackColor: hex colour for this track (e.g. '#f59e0b' for push)
-// onClick: always fires — all states open the modal
-export default function SkillNode({ skill, state, trackColor, onClick }) {
+// state:             'locked' | 'unlockable' | 'unlocked'
+// trackColor:        hex colour for this track (e.g. '#f59e0b' for push)
+// triggerUnlockAnim: set true by TrackPage for one render-cycle after the modal
+//                    closes following a pass — fires the burst animation
+// onClick:           always fires — all states open the modal
+export default function SkillNode({ skill, state, trackColor, triggerUnlockAnim = false, onClick }) {
   const isUnlocked   = state === 'unlocked'
   const isUnlockable = state === 'unlockable'
-
-  // Detect the unlockable→unlocked transition and fire a brief pulse animation.
-  const prevStateRef = useRef(state)
-  const [justUnlocked, setJustUnlocked] = useState(false)
-
-  useEffect(() => {
-    if (prevStateRef.current !== 'unlocked' && state === 'unlocked') {
-      setJustUnlocked(true)
-      const timer = setTimeout(() => setJustUnlocked(false), 700)
-      return () => clearTimeout(timer)
-    }
-    prevStateRef.current = state
-  }, [state])
 
   const Icon = SKILL_ICONS[skill.name] ?? DefaultIcon
 
@@ -79,7 +67,7 @@ export default function SkillNode({ skill, state, trackColor, onClick }) {
     borderColor:     isUnlockable || isUnlocked ? trackColor : undefined,
     backgroundColor: isUnlocked ? trackColor : undefined,
     color:           isUnlocked ? 'white' : isUnlockable ? trackColor : undefined,
-    boxShadow: justUnlocked
+    boxShadow: triggerUnlockAnim
       ? `0 0 28px ${trackColor}, 0 0 56px ${trackColor}55`
       : isUnlockable
       ? `0 0 16px ${trackColor}55`
@@ -92,7 +80,7 @@ export default function SkillNode({ skill, state, trackColor, onClick }) {
       onClick={onClick}
     >
       <div
-        className={`${styles.circle} ${justUnlocked ? styles.justUnlocked : ''}`}
+        className={`${styles.circle} ${triggerUnlockAnim ? styles.justUnlocked : ''}`}
         style={circleStyle}
       >
         <Icon className={styles.skillIcon} />
