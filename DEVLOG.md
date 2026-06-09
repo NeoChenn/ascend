@@ -501,6 +501,63 @@ The demo video section only renders when `skill.demo_video_url` is truthy. No sp
 
 ---
 
+## Step 8c — Gemini LLM narrative feedback (stretch goal)
+*Date: June 2026*
+
+### What I built
+- `backend/services/llm_service.py` — calls the Gemini API with the structured form check results and returns a 2–3 sentence coaching paragraph. The prompt formats each check as a PASS/FAIL bullet and asks for plain-prose feedback. Wrapped in `try/except` so a failed API call never breaks the upload response — returns `None` on any error.
+- Updated `backend/main.py` to call `generate_narrative_feedback` after analysis and add a `narrative` field to the response JSON.
+- Updated `SkillModal` to display the narrative in an italic box between the verdict banner and the check cards. The box only renders when `result.narrative` is non-null — the UI degrades gracefully when the API is unavailable.
+- Added `google-genai` to `requirements.txt`.
+
+### What broke / what was hard
+
+**Wrong package — `google-generativeai` is deprecated:**
+The first install used `google-generativeai`, which immediately showed a `FutureWarning` saying all support has ended. Switched to the replacement package `google-genai` (v2.x), which has a different API pattern: `genai.Client(api_key=...)` instead of `genai.configure(...)` + `GenerativeModel(...)`.
+
+**`gemini-2.0-flash` not on free tier (`limit: 0`):**
+The first model tried was `gemini-2.0-flash`. Got a 429 with `limit: 0` — not "you've run out" but "your quota is set to zero." Switched to `gemini-1.5-flash` since it's the documented free model.
+
+**`gemini-1.5-flash` not found (`404 NOT_FOUND`):**
+The new `google-genai` SDK defaults to API version `v1beta`. `gemini-1.5-flash` is only available in `v1`. Added `http_options=types.HttpOptions(api_version="v1")` to the client. Still 404 — it turned out `gemini-1.5-flash` isn't in this API key's model list at all (confirmed by running `client.models.list()`). The available text generation models were all `gemini-2.x` variants.
+
+**`gemini-2.0-flash-lite` — quota still `limit: 0`:**
+Switched to `gemini-2.0-flash-lite` (which appeared in the model list). Same `limit: 0` error. Root cause: the original API key was created in a project on **"Tier 1 · Prepay"** billing (visible in AI Studio → API Keys → Billing Tier column). Creating a new API key in a new project didn't help — the Google account itself has `limit: 0` on free tier quotas for all Gemini models, likely due to prior billing activity on the account.
+
+### What I learned
+
+**The `google-generativeai` → `google-genai` migration:**
+The old package used a global `genai.configure(api_key=...)` call that set state for the entire module, then `GenerativeModel(model_name)` to create a model object, then `model.generate_content(prompt)`. The new package uses a stateless `Client` object: `client = genai.Client(api_key=...)`, then `client.models.generate_content(model=..., contents=...)`. The new pattern is cleaner — no global state, easier to test and reason about.
+
+**API versioning in Google's AI platform:**
+Google maintains multiple API versions simultaneously (`v1`, `v1beta`, `v1alpha`). Stable models graduate from beta to v1. Experimental models only appear in v1beta. The `google-genai` SDK defaults to v1beta to give access to the latest experimental models — but this means stable models that were retired from v1beta are no longer accessible with the default config. The `HttpOptions(api_version=...)` override selects which surface you're targeting.
+
+**`limit: 0` vs rate limit exceeded:**
+A 429 error with a `limit` value in the error body means two different things depending on the value:
+- `limit: N` (where N > 0) — you've hit your quota, wait and retry
+- `limit: 0` — the quota is set to zero for your account/project, retrying won't help
+
+The second case is an account configuration issue, not a transient error. The `try/except` in `llm_service.py` handles both the same way — the narrative is just omitted — which is the right call: an LLM enhancement should never block the core feature.
+
+**Graceful degradation as a real design principle:**
+The `try/except` returning `None` means the entire upload flow (video analysis, skeleton overlay, pass/fail verdict, Supabase writes) continues to work even if Gemini is completely unavailable. The frontend `{result.narrative && <p>...</p>}` pattern means nothing renders when `narrative` is null — no empty boxes, no error messages, no broken layout. This was the right architecture decision: the LLM is an enhancement, not a dependency.
+
+### Decisions made
+
+**`generate_narrative_feedback` in its own service file:**
+Mirrors the existing pattern: `pose_service.py` owns MediaPipe, `analysis/` owns angle logic, `llm_service.py` owns Gemini. `main.py` stays as a thin router that composes the services. This makes the LLM call easy to swap out (different provider, different model) without touching the route handler.
+
+**Narrative positioned between verdict and check cards:**
+The verdict banner gives the instant "pass/fail" read. The narrative adds context. The check cards give the specifics. This ordering goes from high-level to detailed — a natural reading order. Putting the narrative after the cards would bury it below a long list.
+
+**Current status:**
+The feature is implemented and the code is correct — the `try/except` means the app works with or without a working Gemini key. The quota issue is account-level: the Google account has `limit: 0` on free tier Gemini quotas. Options to enable it: add prepaid credits in AI Studio (~$1 covers thousands of demo attempts), or use a fresh Google account with no billing history.
+
+### What's next
+- Deployment: frontend to Vercel, backend to Railway or Render
+
+---
+
 ## Step 9 — Deployment + polish
 *Date: Late August 2026*
 
