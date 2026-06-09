@@ -2,16 +2,10 @@ import os
 
 from dotenv import load_dotenv
 from google import genai
-from google.genai import types
 
 load_dotenv()
 
-# gemini-1.5-flash lives in the stable v1 API; the new google-genai SDK
-# defaults to v1beta where 1.5-flash is not available, so we override it.
-_client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY"),
-    http_options=types.HttpOptions(api_version="v1"),
-)
+_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 
 def generate_narrative_feedback(exercise: str, checks: list[dict]) -> str | None:
@@ -46,9 +40,9 @@ def generate_narrative_feedback(exercise: str, checks: list[dict]) -> str | None
     )
 
     try:
-        # gemini-1.5-flash is free-tier eligible (15 RPM, 1 500 req/day)
+        # gemini-2.0-flash-lite: free tier, 30 RPM / 1 500 req/day
         response = _client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.0-flash-lite",
             contents=prompt,
         )
         return response.text.strip()
