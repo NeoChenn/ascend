@@ -63,18 +63,16 @@ export default function SkillNode({ skill, state, trackColor, triggerUnlockAnim 
 
   // Inline styles drive the dynamic per-track colour.
   // CSS `color` propagates into the SVG via currentColor on every stroke/fill.
-  // Use filter: drop-shadow instead of box-shadow — clip-path clips box-shadow but
-  // drop-shadow applies after clipping, so it correctly follows the polygon outline.
   const circleStyle = {
     borderColor:     isUnlockable || isUnlocked ? trackColor : undefined,
     backgroundColor: isUnlocked ? trackColor : undefined,
     color:           isUnlocked ? 'white' : isUnlockable ? trackColor : undefined,
-    filter: triggerUnlockAnim
-      ? `drop-shadow(0 0 14px ${trackColor}) drop-shadow(0 0 32px ${trackColor}cc)`
+    boxShadow: triggerUnlockAnim
+      ? `0 0 28px ${trackColor}, 0 0 56px ${trackColor}88`
       : isUnlocked
-      ? `drop-shadow(0 0 8px ${trackColor}) drop-shadow(0 0 20px ${trackColor}cc) drop-shadow(0 0 40px ${trackColor}77)`
+      ? `0 0 10px ${trackColor}, 0 0 24px ${trackColor}bb, 0 0 48px ${trackColor}55`
       : isUnlockable
-      ? `drop-shadow(0 0 8px ${trackColor}88)`
+      ? `0 0 14px ${trackColor}55`
       : undefined,
   }
 

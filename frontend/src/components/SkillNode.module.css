@@ -9,8 +9,7 @@
 .circle {
   width: 88px;
   height: 88px;
-  /* Cut-corner octagon — the classic RPG skill node shape */
-  clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -18,8 +17,7 @@
   background: #1c1c1c;
   /* Default icon colour for locked state — overridden by inline style for other states */
   color: #2d2d2d;
-  /* filter transition for the drop-shadow glow (box-shadow is clipped by clip-path) */
-  transition: transform 0.15s ease, filter 0.25s ease;
+  transition: transform 0.15s ease, box-shadow 0.25s ease;
 }
 
 
