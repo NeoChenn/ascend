@@ -347,7 +347,7 @@ export default function TrackPage() {
     return (
       <main className={styles.container}>
         <p>Track not found.</p>
-        <Link to="/skill-tree">← Back to skill tree</Link>
+        <Link to="/skill-tree">← Back to body map</Link>
       </main>
     )
   }
@@ -357,7 +357,7 @@ export default function TrackPage() {
   return (
     <main className={styles.container}>
       <div className={styles.topNav}>
-        <Link to="/skill-tree" className={styles.back}>← Skill tree</Link>
+        <Link to="/skill-tree" className={styles.back}>← Body map</Link>
         <div className={styles.trackSwitcher}>
           {Object.entries(TRACK_LABELS).map(([id, name]) => (
             <Link

@@ -43,7 +43,7 @@ export default function SkillTree() {
 
   return (
     <main className={styles.container}>
-      <h1 className={styles.title}>Skill Tree</h1>
+      <h1 className={styles.title}>Body Map</h1>
       <p className={styles.subtitle}>Select a muscle group to explore that track.</p>
 
       <div className={styles.mapWrapper}>

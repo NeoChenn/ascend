@@ -4,9 +4,6 @@
   align-items: center;
   padding: 3rem 2rem;
   min-height: calc(100vh - 65px);
-  /* Subtle dot-grid for game-feel depth */
-  background-image: radial-gradient(#2a2a2a 1px, transparent 1px);
-  background-size: 28px 28px;
 }
 
 /* Top bar: back link on the left, track switcher on the right */

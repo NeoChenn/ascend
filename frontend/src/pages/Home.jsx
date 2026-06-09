@@ -9,7 +9,7 @@ export default function Home() {
         Unlock calisthenics skills by proving your form. Upload a video, pass the analysis, earn the node.
       </p>
       <div className={styles.actions}>
-        <Link to="/skill-tree" className={styles.primaryButton}>View skill tree</Link>
+        <Link to="/skill-tree" className={styles.primaryButton}>View body map</Link>
         <Link to="/signup" className={styles.secondaryButton}>Create account</Link>
       </div>
     </main>
