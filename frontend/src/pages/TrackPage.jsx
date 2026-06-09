@@ -188,7 +188,7 @@ export default function TrackPage() {
   function connectorColor(state) {
     if (state === 'unlocked')   return color
     if (state === 'unlockable') return `${color}aa`
-    return `${color}33`
+    return '#3a3a3a'
   }
 
   // Returns the highest-priority state from a list — used to colour shared
@@ -356,7 +356,21 @@ export default function TrackPage() {
 
   return (
     <main className={styles.container}>
-      <Link to="/skill-tree" className={styles.back}>← Skill tree</Link>
+      <div className={styles.topNav}>
+        <Link to="/skill-tree" className={styles.back}>← Skill tree</Link>
+        <div className={styles.trackSwitcher}>
+          {Object.entries(TRACK_LABELS).map(([id, name]) => (
+            <Link
+              key={id}
+              to={`/track/${id}`}
+              className={`${styles.trackTab} ${id === trackId ? styles.trackTabActive : ''}`}
+              style={id === trackId ? { borderColor: TRACK_COLORS[id], color: TRACK_COLORS[id] } : {}}
+            >
+              {name}
+            </Link>
+          ))}
+        </div>
+      </div>
 
       <h1 className={styles.title} style={{ color }}>{label} Track</h1>
       <p className={styles.subtitle}>
