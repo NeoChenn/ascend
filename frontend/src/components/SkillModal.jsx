@@ -194,7 +194,7 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
         {/* ── Uploading: plain video preview + pulsing text ── */}
         {uploadState === 'uploading' && (
           <div className={styles.previewSection}>
-            <video className={styles.videoPreview} src={videoPreviewUrl} controls muted />
+            <video className={styles.videoPreview} src={videoPreviewUrl} autoPlay controls muted playsInline />
             <p className={styles.analysingText}>Analysing your attempt…</p>
           </div>
         )}
@@ -209,8 +209,11 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
                 ref={videoRef}
                 className={styles.videoPreview}
                 src={videoPreviewUrl}
+                autoPlay
                 controls
                 loop
+                muted
+                playsInline
               />
               {/* Canvas sits on top of the video; pointer-events: none lets clicks
                   pass through to the video controls underneath */}
@@ -267,7 +270,10 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
                 <h3 className={styles.sectionTitle}>Your unlock attempt</h3>
                 <video
                   src={unlockVideoUrl}
+                  autoPlay
                   controls
+                  muted
+                  playsInline
                   className={styles.videoPreview}
                   style={{ marginBottom: 0 }}
                 />
@@ -280,7 +286,11 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
                 <h3 className={styles.sectionTitle}>Demo</h3>
                 <video
                   src={skill.demo_video_url}
+                  autoPlay
                   controls
+                  loop
+                  muted
+                  playsInline
                   className={styles.videoPreview}
                   style={{ marginBottom: 0 }}
                 />

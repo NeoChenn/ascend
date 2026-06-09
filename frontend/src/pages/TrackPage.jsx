@@ -169,8 +169,10 @@ export default function TrackPage() {
     lastUnlockedInModalRef.current = null
     setSelectedSkill(null)
     if (unlockedSkillId) {
-      setJustUnlockedId(unlockedSkillId)
-      setTimeout(() => setJustUnlockedId(null), 700)
+      setTimeout(() => {
+        setJustUnlockedId(unlockedSkillId)
+        setTimeout(() => setJustUnlockedId(null), 700)
+      }, 1000)
     }
   }
 
@@ -179,6 +181,22 @@ export default function TrackPage() {
     const prereqs = prereqMap[skill.id] ?? []
     const allMet = prereqs.every(reqId => unlockedIds.has(reqId))
     return allMet ? 'unlockable' : 'locked'
+  }
+
+  // Returns the connector colour for a given skill state.
+  // Connectors take the colour of the skill they lead INTO (the upper/child skill).
+  function connectorColor(state) {
+    if (state === 'unlocked')   return color
+    if (state === 'unlockable') return `${color}aa`
+    return `${color}33`
+  }
+
+  // Returns the highest-priority state from a list — used to colour shared
+  // segments (trunk + bar) of the H-branch SVG.
+  function maxState(states) {
+    if (states.some(s => s === 'unlocked'))   return 'unlocked'
+    if (states.some(s => s === 'unlockable')) return 'unlockable'
+    return 'locked'
   }
 
   // Analyse the tree and return a layout description.
@@ -279,9 +297,11 @@ export default function TrackPage() {
   // Multiple columns: H-shaped SVG — trunk from branchNode up to horizontal bar, drops to each column.
   //
   // NODE_WIDTH and NODE_GAP must match .column { width } and .columnsWrapper { gap } in CSS.
-  function renderBranchSVG(columnCount) {
+  // columnBaseStates: array of skill states for the bottom skill of each column,
+  // used to colour each drop and the shared trunk/bar by the best available state.
+  function renderBranchSVG(columnCount, columnBaseStates) {
     if (columnCount === 1) {
-      return <div className={styles.connector} style={{ background: color }} />
+      return <div className={styles.connector} style={{ background: connectorColor(columnBaseStates[0]) }} />
     }
 
     const NODE_WIDTH = 110
@@ -294,16 +314,17 @@ export default function TrackPage() {
       i * (NODE_WIDTH + NODE_GAP) + NODE_WIDTH / 2
     )
     const centerX = svgWidth / 2
+    const sharedColor = connectorColor(maxState(columnBaseStates))
 
     return (
       <svg width={svgWidth} height={svgHeight} style={{ display: 'block' }}>
         {/* Trunk: from the branch node (bottom of SVG) up to the horizontal bar */}
-        <line x1={centerX} y1={svgHeight} x2={centerX} y2={midY} stroke={color} strokeWidth={2} />
+        <line x1={centerX} y1={svgHeight} x2={centerX} y2={midY} stroke={sharedColor} strokeWidth={3} />
         {/* Horizontal bar spanning all columns */}
-        <line x1={columnCenters[0]} y1={midY} x2={columnCenters[columnCenters.length - 1]} y2={midY} stroke={color} strokeWidth={2} />
-        {/* Drops from the bar up into each column */}
+        <line x1={columnCenters[0]} y1={midY} x2={columnCenters[columnCenters.length - 1]} y2={midY} stroke={sharedColor} strokeWidth={3} />
+        {/* Drops from the bar up into each column — coloured per column base state */}
         {columnCenters.map((cx, i) => (
-          <line key={i} x1={cx} y1={midY} x2={cx} y2={0} stroke={color} strokeWidth={2} />
+          <line key={i} x1={cx} y1={midY} x2={cx} y2={0} stroke={connectorColor(columnBaseStates[i])} strokeWidth={3} />
         ))}
       </svg>
     )
@@ -359,7 +380,7 @@ export default function TrackPage() {
                     const items = [renderSkillNode(skill)]
                     if (skillIdx < chain.length - 1) {
                       items.push(
-                        <div key={`conn-${skill.id}`} className={styles.connector} style={{ background: color }} />
+                        <div key={`conn-${skill.id}`} className={styles.connector} style={{ background: connectorColor(getSkillState(chain[skillIdx])) }} />
                       )
                     }
                     return items
@@ -370,7 +391,7 @@ export default function TrackPage() {
           )}
 
           {/* H-branch SVG (or single connector) connecting branch node to column bases */}
-          {chains.length > 0 && renderBranchSVG(chains.length)}
+          {chains.length > 0 && renderBranchSVG(chains.length, chains.map(c => getSkillState(c[c.length - 1])))}
 
           {/* Branch node: the skill where the tree fans out (rendered once, not in any column) */}
           {branchNode && renderSkillNode(branchNode)}
@@ -382,8 +403,9 @@ export default function TrackPage() {
             // For a branched tree the first connector goes between branchNode and linearBase[0].
             // For a linear tree there is no branchNode, so skip the connector before the top skill.
             if (branchNode || i > 0) {
+              const aboveSkill = (branchNode && i === 0) ? branchNode : linearBase[i - 1]
               items.push(
-                <div key={`base-conn-${skill.id}`} className={styles.connector} style={{ background: color }} />
+                <div key={`base-conn-${skill.id}`} className={styles.connector} style={{ background: connectorColor(getSkillState(aboveSkill)) }} />
               )
             }
             items.push(renderSkillNode(skill))
