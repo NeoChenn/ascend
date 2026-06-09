@@ -57,14 +57,16 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
 - Rep counting with smoothed signal (window=11) + de-duplicated phase events to prevent overcounting
 - Supabase: schema (4 tables), RLS policies, storage buckets (demo-videos, unlock-videos)
 - Auth: login, signup, session persistence via AuthContext
-- Muscle map skill tree landing page (interactive SVG at /skill-tree)
+- Muscle map landing page (interactive SVG at /skill-tree, now labelled "Skill Trees")
 - Track pages at /track/:trackId — column-based skill tree with real Supabase data, locked/unlockable/unlocked states, H-branch SVG connectors
-- SkillNode component (3 visual states) + SkillModal (skill info, filming instructions, upload button)
+- SkillNode component (3 visual states, per-skill SVG stick-figure icons, box-shadow glow on unlocked)
+- SkillModal (skill info, filming instructions, autoplay video previews, upload button)
 - Full upload flow: file picker → uploading state with video preview → MediaPipe skeleton overlay on result → pass/fail verdict → feedback cards
 - Supabase writes on attempt: skill_attempts (always), user_skills + Storage upload (on pass)
 - Skill node flips to unlocked immediately after pass (local state + persisted to DB)
 - Reopening an unlocked skill shows the user's own unlock video + option to re-attempt
 - Sign-in banner for unauthenticated users (upload still works, results not saved)
+- RPG UI polish: Bebas Neue titles, Rajdhani body font, dot-grid + vignette background, 3-level connector colours, glowing unlocked paths, track switcher on track pages, navbar background
 
 **Next:**
 - Deployment: frontend to Vercel, backend to Railway or Render
@@ -87,6 +89,7 @@ calisthenics-coach/
 │   │   ├── components/
 │   │   │   ├── Navbar.jsx
 │   │   │   ├── SkillNode.jsx              # skill card: locked / unlockable / unlocked states
+│   │   │   ├── SkillIcons.jsx             # 21 SVG stick-figure icons (one per skill), all using currentColor
 │   │   │   └── SkillModal.jsx             # modal: skill info + filming instructions + upload button
 │   │   ├── App.jsx                    # routes: /, /skill-tree, /track/:trackId, /login, /signup
 │   │   └── supabaseClient.js          # single shared Supabase client

@@ -558,6 +558,77 @@ The feature is implemented and the code is correct — the `try/except` means th
 
 ---
 
+## Step 8d — UI polish & RPG feel
+*Date: June 2026*
+
+### What I built
+
+**Navigation & labelling improvements:**
+- Track switcher pill-bar on every track page — clicking Push/Pull/Core/Legs navigates directly between trees without going back to the landing page. Tabs use the track colour when active, grey when inactive. Styled to match the God of War skill tree reference.
+- Renamed "Skill Tree" → "Skill Trees" (the page shows a body silhouette, not a tree), renamed track page titles from "{Label} Track" → "{Label} Tree"
+- Back link on track pages restyled as a pill matching the tab switcher — same uppercase font, same border treatment, so the whole top bar reads as one cohesive nav unit
+- Removed skill count subtitle ("3 skills") from track pages — added noise without useful information
+- Increased pill font size from 0.62rem to 0.75rem after visual review
+
+**Skill node icons:**
+- Created `SkillIcons.jsx` — 21 hand-drawn SVG stick-figure icons, one per skill in the database. Every path uses `stroke="currentColor"` or `fill="currentColor"` so the icon colour inherits from the parent element's CSS `color` property. This means a single icon component automatically adjusts to locked (dark grey), unlockable (track colour), and unlocked (white) states with no extra logic — CSS propagates the colour for free.
+
+**Glow and animation polish:**
+- Unlock burst animation fires 1 second after the modal closes (was immediate). The delay lets the modal disappear and the page settle before the node pulses — feels more intentional.
+- Added `autoPlay muted playsInline` to all four `<video>` elements in SkillModal. `muted` is required — browsers block autoplay on any video with audio unless it is explicitly muted.
+- Unlocked skill nodes now glow with a layered `box-shadow` corona: a tight inner glow at 10px, a medium spread at 24px, and a wide outer halo at 48px, all using the track colour.
+
+**3-level connector colours:**
+- Connectors now reflect the state of the skill they lead *into*: full track colour (unlocked), track colour at 67% opacity (unlockable), flat `#3a3a3a` grey (locked). This means the path you've already cleared is visually distinct from the path ahead.
+- Unlocked connectors also get a `box-shadow` glow, making cleared paths look like lit energy conduits.
+
+**RPG design overhaul:**
+- Added Google Fonts: **Bebas Neue** for page titles (bold condensed, immediately reads as "game UI"), **Rajdhani** (weights 500 and 700) for all body/tab/nav text (angular, clean at small sizes). One `@import` in `index.css`, two `font-family` changes.
+- Added a vignette overlay to the body background: a fixed `radial-gradient` darkens the page edges while the dot grid scrolls underneath. Uses `background-attachment: fixed, scroll` so the two layers move independently — the vignette stays anchored to the viewport.
+- Navbar background set to `#141414` — slightly lighter than the `#0f0f0f` page background to visually separate it as a distinct layer.
+- Dot-grid background moved from `TrackPage.module.css` to `index.css` (global `body`) so all pages share it.
+
+**What didn't work — octagonal nodes:**
+Attempted to change skill nodes from circles to cut-corner octagons using `clip-path: polygon(...)`. The shape itself rendered correctly. However, `box-shadow` is clipped by `clip-path` — the shadow is drawn inside the clipping region and then cut, making the glow completely invisible. Switched to `filter: drop-shadow()` instead, which is applied *after* clipping and should follow the polygon outline. In practice, `drop-shadow` was still not visually detectable on these nodes inside flex columns, even at high blur values. Reverted to circles and restored `box-shadow` — the glow was immediately visible again. The `clip-path + filter: drop-shadow` combination is theoretically correct but seems to not composite as expected inside deeply nested flex layouts in practice.
+
+### What broke / what was hard
+
+**Clip-path clips box-shadow (and drop-shadow didn't save it):**
+`clip-path` clips the entire painted layer of an element, including `box-shadow`. Even though `filter: drop-shadow` is documented to apply after clipping, it failed to produce a visible glow in this context. Root cause is unclear — possibly a compositing layer or stacking context issue created by the surrounding flex structure. Lesson: if you need a visible outer glow on a clipped shape, test it early. The safest approach is to put the glow on a *wrapper* element that has no `clip-path`, and the clip-path on the inner element.
+
+**`Object.entries` ordering for the track switcher:**
+JavaScript objects preserve insertion order for string keys in all modern engines. `Object.entries(TRACK_LABELS)` iterates in definition order, so the tab sequence (Push → Pull → Core → Legs) matches the source code order. This is a reliable modern JS behaviour, but worth knowing — it wasn't guaranteed in older specs.
+
+### What I learned
+
+**`currentColor` as a CSS variable:**
+SVG elements that use `stroke="currentColor"` or `fill="currentColor"` inherit the nearest ancestor's CSS `color` value. This means you can control icon colour entirely from CSS without touching SVG attributes — set `color: trackColor` on the parent div and every stroke in the icon updates. It's the standard pattern for icon libraries and avoids duplicating colour logic between CSS and SVG.
+
+**`background-attachment: fixed` for viewport-anchored backgrounds:**
+Setting a background layer to `fixed` makes it position relative to the viewport, not the element. This means as the user scrolls, the vignette gradient stays in place and the dot grid scrolls underneath it — the two layers move at different rates from the same `background-image` declaration. Only one `background-attachment` value is needed for two layers: `background-attachment: fixed, scroll`.
+
+**Google Fonts `display=swap`:**
+Adding `&display=swap` to the Google Fonts import URL tells the browser to use a fallback system font while the custom font loads, then swap it in when ready. Without this, the browser may show invisible text ("FOIT" — flash of invisible text) during font download. `swap` avoids FOIT at the cost of a brief layout shift when the font arrives.
+
+**Why `muted` is required for video autoplay:**
+Browsers enforce a policy that prevents audio from playing without a user gesture. A `<video>` element with `autoPlay` but no `muted` attribute will silently fail to autoplay on Chrome and Safari. Adding `muted` tells the browser the video has no audio that could surprise the user, which satisfies the policy. `playsInline` prevents iOS Safari from forcing the video into fullscreen mode.
+
+### Decisions made
+
+**Connector colour rule: brightness follows the skill above, not below:**
+Each connector's colour is determined by the state of the skill it leads *into* (the child/dependent skill above it in the layout). This means a connector is bright only when the destination is already unlocked — it tells you where you've been. An alternative (colour based on the skill below/prerequisite) would make connectors bright once the prerequisite is met, indicating what's possible — but that creates visual clutter when many skills are unlocked. The "where you've been" rule feels more earned.
+
+**Bebas Neue for titles only, Rajdhani for everything else:**
+Using Bebas Neue for body text would be unreadable at small sizes — it's a display font. Rajdhani is designed to be legible at small sizes while still having an angular game-UI feel. The combination gives visual hierarchy: Bebas Neue signals "this is an important label" for headings, Rajdhani keeps the rest of the UI readable.
+
+**Revert octagonal nodes rather than debug the glow:**
+The octagonal shape looked good in isolation, but without the glow the nodes lost their most visually distinctive state indicator. The glow communicates "unlocked" at a glance, especially in a dark UI where colour alone can be subtle. Shape differentiation (octagon vs circle) matters less than the glow. Chose the working glow over the novel shape.
+
+### What's next
+- Deployment: frontend to Vercel, backend to Railway or Render
+
+---
+
 ## Step 9 — Deployment + polish
 *Date: Late August 2026*
 
