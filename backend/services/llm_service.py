@@ -1,13 +1,12 @@
 import os
 
-import google.generativeai as genai
 from dotenv import load_dotenv
+from google import genai
 
 load_dotenv()
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-# gemini-1.5-flash is free-tier eligible (15 RPM, 1 500 req/day)
-_model = genai.GenerativeModel("gemini-1.5-flash")
+# Client is initialised once at import time; the API key is read from .env
+_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 
 def generate_narrative_feedback(exercise: str, checks: list[dict]) -> str | None:
@@ -42,7 +41,11 @@ def generate_narrative_feedback(exercise: str, checks: list[dict]) -> str | None
     )
 
     try:
-        response = _model.generate_content(prompt)
+        # gemini-2.0-flash is free-tier eligible (15 RPM, 1 500 req/day)
+        response = _client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt,
+        )
         return response.text.strip()
     except Exception as exc:
         # Narrative is a nice-to-have. A failed API call should never break the
