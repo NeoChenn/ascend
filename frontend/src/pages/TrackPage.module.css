@@ -61,10 +61,6 @@
   margin-bottom: 0.5rem;
 }
 
-.subtitle {
-  color: #a0a0a0;
-  margin-bottom: 0;
-}
 
 /* Outer wrapper — root sits at the bottom, columns grow upward */
 .chain {
