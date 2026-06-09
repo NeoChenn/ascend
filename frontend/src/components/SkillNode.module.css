@@ -2,7 +2,6 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
   width: 100%;
   cursor: pointer;
 }
@@ -30,19 +29,6 @@
   height: 52px;
 }
 
-.name {
-  font-size: 0.6rem;
-  font-weight: 700;
-  text-align: center;
-  line-height: 1.4;
-  max-width: 108px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.locked .name     { color: #383838; }
-.unlockable .name { color: #b0b0b0; }
-.unlocked .name   { color: #f0f0f0; }
 
 /* Scale burst when a skill flips from unlockable → unlocked */
 @keyframes unlockPulse {

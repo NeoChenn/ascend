@@ -69,6 +69,8 @@ export default function SkillNode({ skill, state, trackColor, triggerUnlockAnim 
     color:           isUnlocked ? 'white' : isUnlockable ? trackColor : undefined,
     boxShadow: triggerUnlockAnim
       ? `0 0 28px ${trackColor}, 0 0 56px ${trackColor}55`
+      : isUnlocked
+      ? `0 0 8px ${trackColor}, 0 0 22px ${trackColor}99, 0 0 48px ${trackColor}33`
       : isUnlockable
       ? `0 0 16px ${trackColor}55`
       : undefined,
@@ -85,7 +87,6 @@ export default function SkillNode({ skill, state, trackColor, triggerUnlockAnim 
       >
         <Icon className={styles.skillIcon} />
       </div>
-      <span className={styles.name}>{skill.name}</span>
     </div>
   )
 }
