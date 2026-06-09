@@ -22,7 +22,9 @@ def _detect_pullup_rep_phases(
         }
     Falls back to [(0, last_frame)] if no reps are detected.
     """
-    smoothed = _smooth_signal(_compute_elbow_angles(landmarks_per_frame))
+    # Window=11 covers ~0.37 s at 30 fps, removing most landmark jitter while
+    # keeping genuine rep transitions (which take at least 0.5 s) intact.
+    smoothed = _smooth_signal(_compute_elbow_angles(landmarks_per_frame), window=11)
 
     bottom_indices: list[int] = []
     top_indices: list[int] = []
@@ -38,11 +40,25 @@ def _detect_pullup_rep_phases(
         if is_local_min and smoothed[i] < 110:
             top_indices.append(i)
 
-    reps: list[tuple[int, int]] = []
-    for bottom_idx in bottom_indices:
-        next_top = next((t for t in top_indices if t > bottom_idx), None)
-        if next_top is not None:
-            reps.append((bottom_idx, next_top))
+    # De-duplicate: enforce that bottoms and tops must strictly alternate.
+    # Two consecutive bottoms (e.g. noise at the hang position) get merged into
+    # one by keeping the later index; same for consecutive tops.
+    all_events: list[tuple[int, str]] = sorted(
+        [(idx, "bottom") for idx in bottom_indices] +
+        [(idx, "top") for idx in top_indices]
+    )
+    deduped: list[list] = []
+    for idx, kind in all_events:
+        if deduped and deduped[-1][1] == kind:
+            deduped[-1][0] = idx   # replace with the more committed (later) event
+        else:
+            deduped.append([idx, kind])
+
+    reps: list[tuple[int, int]] = [
+        (deduped[i][0], deduped[i + 1][0])
+        for i in range(len(deduped) - 1)
+        if deduped[i][1] == "bottom" and deduped[i + 1][1] == "top"
+    ]
 
     if not reps:
         reps = [(0, len(landmarks_per_frame) - 1)]

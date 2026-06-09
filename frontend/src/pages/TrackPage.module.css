@@ -4,6 +4,9 @@
   align-items: center;
   padding: 3rem 2rem;
   min-height: calc(100vh - 65px);
+  /* Subtle dot-grid for game-feel depth */
+  background-image: radial-gradient(#2a2a2a 1px, transparent 1px);
+  background-size: 28px 28px;
 }
 
 .back {
@@ -20,7 +23,8 @@
 
 .title {
   font-size: 2.5rem;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   margin-bottom: 0.5rem;
 }
 
@@ -42,19 +46,19 @@
   display: flex;
   flex-direction: row;
   align-items: flex-end;
-  gap: 16px; /* must equal NODE_GAP constant in renderBranchSVG */
+  gap: 24px; /* must equal NODE_GAP constant in renderBranchSVG */
 }
 
-/* One vertical branch — skills stacked leaf-to-bottom, connectors centered */
+/* One vertical branch — skills stacked leaf-to-bottom, connectors centred */
 .column {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 200px; /* must equal NODE_WIDTH constant in renderBranchSVG */
+  width: 110px; /* must equal NODE_WIDTH constant in renderBranchSVG */
 }
 
 /* Thin vertical line connecting adjacent skills in a column, or a single-branch trunk */
 .connector {
-  width: 2px;
+  width: 3px;
   height: 3rem;
 }

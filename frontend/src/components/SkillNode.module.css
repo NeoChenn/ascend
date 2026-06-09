@@ -1,47 +1,56 @@
-.node {
-  width: 200px;
-  padding: 1rem 1.25rem;
-  border-radius: 10px;
-  border: 1px solid #333;
-  background: #1e1e1e;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+.nodeWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  cursor: pointer;
 }
 
-.node.unlockable:hover {
-  transform: translateY(-2px);
-}
-
-.header {
+.circle {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+  justify-content: center;
+  border: 2px solid #2a2a2a;
+  background: #1c1c1c;
+  /* Default icon colour for locked state — overridden by inline style for other states */
+  color: #2d2d2d;
+  transition: transform 0.15s ease, box-shadow 0.25s ease;
+}
+
+.nodeWrapper:hover .circle {
+  transform: scale(1.07);
+}
+
+.skillIcon {
+  width: 52px;
+  height: 52px;
 }
 
 .name {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #f0f0f0;
-}
-
-/* Locked state — muted text */
-.locked .name {
-  color: #555;
-}
-
-.icon {
-  font-size: 0.85rem;
-  flex-shrink: 0;
-}
-
-/* Unlocked state — icon is white on the coloured background */
-.unlocked .icon {
-  color: #fff;
+  font-size: 0.6rem;
   font-weight: 700;
+  text-align: center;
+  line-height: 1.4;
+  max-width: 108px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.prereq {
-  margin-top: 0.4rem;
-  font-size: 0.75rem;
-  color: #444;
+.locked .name     { color: #383838; }
+.unlockable .name { color: #b0b0b0; }
+.unlocked .name   { color: #f0f0f0; }
+
+/* Scale burst when a skill flips from unlockable → unlocked */
+@keyframes unlockPulse {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+.justUnlocked {
+  animation: unlockPulse 0.7s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
 }

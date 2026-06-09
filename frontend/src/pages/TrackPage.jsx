@@ -272,8 +272,8 @@ export default function TrackPage() {
       return <div className={styles.connector} style={{ background: color }} />
     }
 
-    const NODE_WIDTH = 200
-    const NODE_GAP = 16
+    const NODE_WIDTH = 110
+    const NODE_GAP = 24
     const svgWidth = columnCount * NODE_WIDTH + (columnCount - 1) * NODE_GAP
     const svgHeight = 48
     const midY = svgHeight / 2
