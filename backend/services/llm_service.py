@@ -2,11 +2,16 @@ import os
 
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types
 
 load_dotenv()
 
-# Client is initialised once at import time; the API key is read from .env
-_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+# gemini-1.5-flash lives in the stable v1 API; the new google-genai SDK
+# defaults to v1beta where 1.5-flash is not available, so we override it.
+_client = genai.Client(
+    api_key=os.getenv("GEMINI_API_KEY"),
+    http_options=types.HttpOptions(api_version="v1"),
+)
 
 
 def generate_narrative_feedback(exercise: str, checks: list[dict]) -> str | None:
