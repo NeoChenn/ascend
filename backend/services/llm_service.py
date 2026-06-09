@@ -41,9 +41,9 @@ def generate_narrative_feedback(exercise: str, checks: list[dict]) -> str | None
     )
 
     try:
-        # gemini-2.0-flash is free-tier eligible (15 RPM, 1 500 req/day)
+        # gemini-1.5-flash is free-tier eligible (15 RPM, 1 500 req/day)
         response = _client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-1.5-flash",
             contents=prompt,
         )
         return response.text.strip()
