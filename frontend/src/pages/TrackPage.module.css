@@ -66,9 +66,10 @@
 }
 
 .title {
-  font-size: 2.5rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 3rem;
+  font-weight: 400; /* Bebas Neue is already heavy — 400 is its normal display weight */
+  letter-spacing: 0.06em;
   margin-bottom: 0.5rem;
 }
 

@@ -191,12 +191,28 @@ export default function TrackPage() {
     return '#3a3a3a'
   }
 
+  // Returns the full inline style for a connector div, including a glow on unlocked paths.
+  // box-shadow works fine on plain divs (unlike clip-path elements where drop-shadow is needed).
+  function connectorStyle(state) {
+    if (state === 'unlocked') {
+      return { background: color, boxShadow: `0 0 6px ${color}, 0 0 14px ${color}66` }
+    }
+    return { background: connectorColor(state) }
+  }
+
   // Returns the highest-priority state from a list — used to colour shared
   // segments (trunk + bar) of the H-branch SVG.
   function maxState(states) {
     if (states.some(s => s === 'unlocked'))   return 'unlocked'
     if (states.some(s => s === 'unlockable')) return 'unlockable'
     return 'locked'
+  }
+
+  // A leaf skill is one that no other skill in this track requires as a prerequisite.
+  // These are the hardest/pinnacle skills at the top of each chain.
+  const requiredByOthers = new Set(Object.values(prereqMap).flat())
+  function isLeaf(skillId) {
+    return !requiredByOthers.has(skillId)
   }
 
   // Analyse the tree and return a layout description.
@@ -301,7 +317,7 @@ export default function TrackPage() {
   // used to colour each drop and the shared trunk/bar by the best available state.
   function renderBranchSVG(columnCount, columnBaseStates) {
     if (columnCount === 1) {
-      return <div className={styles.connector} style={{ background: connectorColor(columnBaseStates[0]) }} />
+      return <div className={styles.connector} style={connectorStyle(columnBaseStates[0])} />
     }
 
     const NODE_WIDTH = 110
@@ -337,6 +353,7 @@ export default function TrackPage() {
         skill={skill}
         state={getSkillState(skill)}
         trackColor={color}
+        isLeaf={isLeaf(skill.id)}
         triggerUnlockAnim={justUnlockedId === skill.id}
         onClick={() => setSelectedSkill(skill)}
       />
@@ -391,7 +408,7 @@ export default function TrackPage() {
                     const items = [renderSkillNode(skill)]
                     if (skillIdx < chain.length - 1) {
                       items.push(
-                        <div key={`conn-${skill.id}`} className={styles.connector} style={{ background: connectorColor(getSkillState(chain[skillIdx])) }} />
+                        <div key={`conn-${skill.id}`} className={styles.connector} style={connectorStyle(getSkillState(chain[skillIdx]))} />
                       )
                     }
                     return items
@@ -402,7 +419,7 @@ export default function TrackPage() {
           )}
 
           {/* H-branch SVG (or single connector) connecting branch node to column bases */}
-          {chains.length > 0 && renderBranchSVG(chains.length, chains.map(c => getSkillState(c[c.length - 1])))}
+          {chains.length > 0 && renderBranchSVG(chains.length, chains.map(c => getSkillState(c[c.length - 1])))  /* H-branch SVG — drop-shadow not needed here (SVG paths don't have clip-path) */}
 
           {/* Branch node: the skill where the tree fans out (rendered once, not in any column) */}
           {branchNode && renderSkillNode(branchNode)}
@@ -416,7 +433,7 @@ export default function TrackPage() {
             if (branchNode || i > 0) {
               const aboveSkill = (branchNode && i === 0) ? branchNode : linearBase[i - 1]
               items.push(
-                <div key={`base-conn-${skill.id}`} className={styles.connector} style={{ background: connectorColor(getSkillState(aboveSkill)) }} />
+                <div key={`base-conn-${skill.id}`} className={styles.connector} style={connectorStyle(getSkillState(aboveSkill))} />
               )
             }
             items.push(renderSkillNode(skill))

@@ -9,7 +9,8 @@
 .circle {
   width: 88px;
   height: 88px;
-  border-radius: 50%;
+  /* Cut-corner octagon — the classic RPG skill node shape */
+  clip-path: polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -17,7 +18,16 @@
   background: #1c1c1c;
   /* Default icon colour for locked state — overridden by inline style for other states */
   color: #2d2d2d;
-  transition: transform 0.15s ease, box-shadow 0.25s ease;
+  /* filter transition for the drop-shadow glow (box-shadow is clipped by clip-path) */
+  transition: transform 0.15s ease, filter 0.25s ease;
+}
+
+/* Leaf (pinnacle) skills — diamond shape to distinguish them as the hardest in each chain */
+.leaf {
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  width: 80px;
+  height: 80px;
+  border-width: 3px;
 }
 
 .nodeWrapper:hover .circle {
@@ -28,7 +38,6 @@
   width: 52px;
   height: 52px;
 }
-
 
 /* Scale burst when a skill flips from unlockable → unlocked */
 @keyframes unlockPulse {

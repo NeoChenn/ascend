@@ -7,8 +7,10 @@
 }
 
 .title {
-  font-size: 2rem;
-  font-weight: 700;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.5rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
   margin-bottom: 0.5rem;
 }
 

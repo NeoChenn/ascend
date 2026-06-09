@@ -52,10 +52,11 @@ const SKILL_ICONS = {
 
 // state:             'locked' | 'unlockable' | 'unlocked'
 // trackColor:        hex colour for this track (e.g. '#f59e0b' for push)
+// isLeaf:            true for pinnacle skills (nothing else requires them) — renders as diamond
 // triggerUnlockAnim: set true by TrackPage for one render-cycle after the modal
 //                    closes following a pass — fires the burst animation
 // onClick:           always fires — all states open the modal
-export default function SkillNode({ skill, state, trackColor, triggerUnlockAnim = false, onClick }) {
+export default function SkillNode({ skill, state, trackColor, isLeaf = false, triggerUnlockAnim = false, onClick }) {
   const isUnlocked   = state === 'unlocked'
   const isUnlockable = state === 'unlockable'
 
@@ -63,16 +64,18 @@ export default function SkillNode({ skill, state, trackColor, triggerUnlockAnim 
 
   // Inline styles drive the dynamic per-track colour.
   // CSS `color` propagates into the SVG via currentColor on every stroke/fill.
+  // Use filter: drop-shadow instead of box-shadow — clip-path clips box-shadow but
+  // drop-shadow applies after clipping, so it correctly follows the polygon outline.
   const circleStyle = {
     borderColor:     isUnlockable || isUnlocked ? trackColor : undefined,
     backgroundColor: isUnlocked ? trackColor : undefined,
     color:           isUnlocked ? 'white' : isUnlockable ? trackColor : undefined,
-    boxShadow: triggerUnlockAnim
-      ? `0 0 28px ${trackColor}, 0 0 56px ${trackColor}55`
+    filter: triggerUnlockAnim
+      ? `drop-shadow(0 0 12px ${trackColor}) drop-shadow(0 0 24px ${trackColor}99)`
       : isUnlocked
-      ? `0 0 8px ${trackColor}, 0 0 22px ${trackColor}99, 0 0 48px ${trackColor}33`
+      ? `drop-shadow(0 0 5px ${trackColor}) drop-shadow(0 0 14px ${trackColor}99) drop-shadow(0 0 28px ${trackColor}44)`
       : isUnlockable
-      ? `0 0 16px ${trackColor}55`
+      ? `drop-shadow(0 0 6px ${trackColor}66)`
       : undefined,
   }
 
@@ -82,7 +85,7 @@ export default function SkillNode({ skill, state, trackColor, triggerUnlockAnim 
       onClick={onClick}
     >
       <div
-        className={`${styles.circle} ${triggerUnlockAnim ? styles.justUnlocked : ''}`}
+        className={`${styles.circle} ${isLeaf ? styles.leaf : ''} ${triggerUnlockAnim ? styles.justUnlocked : ''}`}
         style={circleStyle}
       >
         <Icon className={styles.skillIcon} />
