@@ -46,8 +46,8 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
 | Pose estimation | MediaPipe |
 | Database + Auth | Supabase (PostgreSQL) |
 | Frontend deployment | Vercel |
-| Backend deployment | Railway or Render |
-| LLM feedback | Claude API |
+| Backend deployment | Railway |
+| LLM feedback | Gemini API (google-genai) |
 
 ## Current build status
 
@@ -67,9 +67,12 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
 - Reopening an unlocked skill shows the user's own unlock video + option to re-attempt
 - Sign-in banner for unauthenticated users (upload still works, results not saved)
 - RPG UI polish: Bebas Neue titles, Rajdhani body font, dot-grid + vignette background, 3-level connector colours, glowing unlocked paths, track switcher on track pages, navbar background
+- Gemini LLM narrative feedback (gracefully degraded — returns null if API unavailable, UI skips the section)
+- Deployment prep: hardcoded localhost URLs replaced with env vars, CORS origin configurable via `FRONTEND_URL`, `vercel.json` SPA rewrite rule added
 
 **Next:**
-- Deployment: frontend to Vercel, backend to Railway or Render
+- Deploy: push to GitHub → Railway (backend) → Vercel (frontend) → wire env vars together
+- Film and upload demo videos for skill nodes
 
 ## Project structure (current)
 
@@ -83,7 +86,6 @@ calisthenics-coach/
 │   │   │   ├── Home.jsx               # landing page
 │   │   │   ├── SkillTree.jsx          # muscle map — navigates to track pages
 │   │   │   ├── TrackPage.jsx          # skill nodes for one track (/track/:trackId)
-│   │   │   ├── Upload.jsx             # legacy generic upload (to be replaced)
 │   │   │   ├── Login.jsx
 │   │   │   └── Signup.jsx
 │   │   ├── components/

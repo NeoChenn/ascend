@@ -6,7 +6,7 @@ export default function Home() {
     <main className={styles.container}>
       <h1>Ascend</h1>
       <p className={styles.subtitle}>
-        Unlock calisthenics skills by proving your form. Upload a video, pass the analysis, earn the node.
+        Skills aren't given here — they're earned. Upload a video, pass the analysis, unlock the node.
       </p>
       <div className={styles.actions}>
         <Link to="/skill-tree" className={styles.primaryButton}>View skill trees</Link>

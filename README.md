@@ -1,12 +1,24 @@
-# Calisthenics Coach
+# Ascend
 
-An AI-powered web app that analyses calisthenics form from video and tracks skill progression.
+An RPG-style calisthenics progression app. Unlock skills by proving your form — upload a video, pass the automated analysis, earn the node.
 
-## What it does
+## How it works
 
-- **Video analysis** — upload a video of a pull-up or push-up and get automated form feedback using pose estimation
-- **Skill tree** — visual progression map to track which skills you've achieved or are working towards
-- **User accounts** — save your upload history and skill progress across sessions
+1. Browse the skill tree across four tracks: **Push**, **Pull**, **Core**, **Legs**
+2. Click an unlockable skill to see what it requires and how to film yourself
+3. Upload a video attempt — the backend runs pose estimation on every frame and checks your form against that skill's specific criteria
+4. **Pass** → skill unlocks, your video is saved to your profile permanently
+5. **Fail** → structured feedback cards show exactly what to fix, try again
+
+## Features
+
+- **Skill tree UI** — RPG-style visual map with prerequisite chains, locked/unlockable/unlocked node states, and animated unlock feedback
+- **Pose-based form analysis** — MediaPipe extracts joint coordinates from every video frame; angle calculations check bottom extension, top flexion, body alignment, and kipping for each exercise
+- **Per-skill SVG icons** — 21 hand-drawn stick-figure icons, one per skill
+- **Skeleton overlay** — after analysis, the MediaPipe landmark skeleton is drawn over your video in real time as it plays back
+- **LLM coaching feedback** — Gemini generates a short natural-language paragraph summarising the attempt alongside the structured pass/fail cards
+- **User accounts** — Supabase auth; all progress and videos are tied to your account across sessions
+- **Demo videos** — each skill node can show a demo clip before you attempt it
 
 ## Tech stack
 
@@ -15,17 +27,27 @@ An AI-powered web app that analyses calisthenics form from video and tracks skil
 | Frontend | React (Vite) |
 | Backend | Python + FastAPI |
 | Pose estimation | MediaPipe |
-| Database + Auth | Supabase |
+| LLM feedback | Gemini API |
+| Database + Auth | Supabase (PostgreSQL + Storage) |
 | Frontend deployment | Vercel |
-| Backend deployment | Railway / Render |
+| Backend deployment | Railway |
 
 ## Running locally
+
+**Prerequisites:** Node.js, Python 3.10+, a Supabase project
 
 **Frontend:**
 ```bash
 cd frontend
 npm install
 npm run dev
+```
+
+Create `frontend/.env.local`:
+```
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_API_URL=http://127.0.0.1:8000
 ```
 
 **Backend:**
@@ -35,4 +57,16 @@ pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-Requires a `.env` file in `backend/` with your Supabase credentials (see `.env.example` when added).
+Create `backend/.env`:
+```
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+GEMINI_API_KEY=your_gemini_api_key
+FRONTEND_URL=http://localhost:5173
+```
+
+## Project context
+
+Built as a portfolio project in my first year studying Computer Science at UCL. I'm an advanced calisthenics practitioner — the domain knowledge directly shaped technical decisions, from the form check thresholds to the choice of which exercises to analyse first.
+
+The DEVLOG in this repo documents every decision, bug, and concept learned throughout the build — written for interview preparation and personal reflection.

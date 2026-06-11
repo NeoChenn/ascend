@@ -629,25 +629,67 @@ The octagonal shape looked good in isolation, but without the glow the nodes los
 
 ---
 
-## Step 9 — Deployment + polish
-*Date: Late August 2026*
+## Step 9 — Deployment prep
+*Date: June 2026*
 
 ### What I built
-<!-- Fill this in -->
 
-### What broke / what was hard
-<!-- Deployment almost always has surprises — document them here -->
-<!-- CORS issues in production? Environment variables? Cold start times? -->
+Three code changes to make the app deployable, plus a round of housekeeping:
+
+- Replaced the hardcoded `http://127.0.0.1:8000/upload` URL in `SkillModal.jsx` with `${import.meta.env.VITE_API_URL}/upload`. Added `VITE_API_URL=http://127.0.0.1:8000` to `frontend/.env.local` so local dev is unchanged.
+- Made the backend CORS origin configurable: `main.py` now reads `FRONTEND_URL` from the environment (`os.getenv("FRONTEND_URL", "http://localhost:5173")`) instead of hardcoding localhost. Added `FRONTEND_URL=http://localhost:5173` to `backend/.env` for local dev.
+- Created `frontend/vercel.json` with a SPA rewrite rule — without it, navigating directly to a route like `/track/push` would return a 404 from Vercel because no file at that path exists on disk.
+- Deleted the legacy `Upload.jsx` and `Upload.module.css` (the generic upload page replaced by the skill modal flow), removed its import and `/upload` route from `App.jsx`.
+- Deleted dev test HTML files and screenshots from `frontend/public/`.
+- Fixed the browser tab title from `"frontend"` to `"Ascend"` in `index.html`.
+- Added `shape.png` favicon and per-skill icon PNGs to `frontend/public/`.
+
+The app is now ready to deploy: push to GitHub → Railway (backend) → Vercel (frontend) → wire env vars between them.
 
 ### What I learned
-<!-- Fill this in -->
+
+**Environment variables have two distinct uses, not just one:**
+
+The common mental model is "env vars store secrets." That's true, but incomplete. They have a second use: **configuration that differs between environments**. The same codebase needs to behave differently on a developer's laptop vs on a production server — pointing at a local backend vs a hosted one. An env var handles this cleanly.
+
+The two uses side by side:
+
+| Use | Example | Why env var |
+|---|---|---|
+| Keep secrets private | `SUPABASE_ANON_KEY`, `GEMINI_API_KEY` | Never commit credentials to Git |
+| Configure per environment | `VITE_API_URL`, `FRONTEND_URL` | Same code, different values on laptop vs production |
+
+`VITE_API_URL` is not a secret — anyone can open DevTools and see the URL. The reason it's an env var is purely so you don't have to change source code when deploying. Hardcoding the Railway URL directly would break local dev; hardcoding localhost would break production.
+
+**The `VITE_` prefix is a security mechanism in Vite:**
+Vite only exposes variables prefixed with `VITE_` to the browser bundle. Any env var without that prefix is intentionally hidden — it never leaves the build tool. This means you can safely have both `VITE_API_URL` (intentionally public) and `SUPABASE_SERVICE_KEY` (intentionally hidden) in the same `.env` file — Vite knows which ones the browser is allowed to see.
+
+**`.env` files are just a local convenience:**
+On Railway and Vercel, there are no `.env` files — you enter variables through the dashboard UI, and the platform injects them into the running process at startup. The app calls `os.getenv()` or `import.meta.env.VITE_*` and doesn't care whether the value came from a file or a dashboard. `.env` files are a developer ergonomics tool for local work.
+
+**CORS is a browser rule, not a server rule:**
+CORS (Cross-Origin Resource Sharing) only applies to requests made from a browser. When JavaScript at `ascend.vercel.app` calls an API at `ascend-backend.railway.app`, the browser sees two different domains ("origins") and blocks the request unless the API explicitly says it's allowed. The server's `allow_origins` list is that permission declaration. The backend wasn't going to work in production with `allow_origins=["http://localhost:5173"]` — the Vercel URL would be rejected even with a correct API URL.
+
+**React Router + Vercel: the SPA routing problem:**
+Vite builds the app into static files — just `index.html`, CSS, and JS. Vercel serves those files from a CDN. When you visit `ascend.vercel.app`, Vercel serves `index.html` and React Router takes over all navigation in the browser. The problem is *direct URL access*: if a user goes straight to `ascend.vercel.app/track/push`, Vercel looks for a file at `track/push/index.html` on disk — that file doesn't exist, so Vercel returns a 404. The `vercel.json` rewrite rule tells Vercel to serve `index.html` for any URL and let React handle the routing.
+
+**`os.getenv("VAR", "default")` as a safe fallback pattern:**
+`os.environ["VAR"]` raises a `KeyError` if the variable is missing. `os.getenv("VAR", "default")` returns the default instead. For the CORS origin, `"http://localhost:5173"` as the default means: if `FRONTEND_URL` is not set in the environment, fall back to localhost — local dev works with no extra config.
 
 ### Decisions made
-<!-- Why Vercel for frontend? Why Railway/Render for backend? -->
-<!-- Any trade-offs with free tier limitations? -->
+
+**Vercel for frontend:**
+Vercel is purpose-built for frontend deployment and has first-class support for Vite/React. Free tier, connects directly to GitHub, and auto-deploys on every push to main. The only required config was `vercel.json` for SPA routing. Zero build configuration needed — Vite preset is detected automatically.
+
+**Railway for backend:**
+Railway supports Python/FastAPI directly from a GitHub repo, handles `requirements.txt` automatically, and injects `$PORT` into the environment so uvicorn can bind to the right port. Free tier is enough for a portfolio project with low traffic.
+
+**Deploy backend before frontend:**
+The frontend needs to know the backend's URL (`VITE_API_URL`) before Vercel builds it — this value is baked into the compiled JS bundle at build time. Railway deploys first, generating the URL, then Vercel uses that URL as a build-time env var.
 
 ### What's next
-<!-- Stretch goals if time allows -->
+- Complete the Railway + Vercel deployment (dashboard steps, not code steps)
+- Film and upload demo videos for skill nodes once the app is live
 
 ---
 
