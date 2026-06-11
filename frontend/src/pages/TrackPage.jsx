@@ -35,8 +35,9 @@ export default function TrackPage() {
   const [selectedSkill, setSelectedSkill] = useState(null)
   // Drives the unlock burst animation on the node — set when the modal closes after a pass.
   const [justUnlockedId, setJustUnlockedId] = useState(null)
-  // Tracks whether a pass happened during the current modal session (ref = no re-render).
-  const lastUnlockedInModalRef = useRef(null)
+  // Holds a pending unlock from the current modal session (ref = no re-render).
+  // Populated on pass; consumed by handleClose so the node only flips after the modal is gone.
+  const pendingUnlockRef = useRef(null) // { skillId, videoUrl } | null
 
   const label = TRACK_LABELS[trackId]
   const color = TRACK_COLORS[trackId]
@@ -144,11 +145,9 @@ export default function TrackPage() {
       )
       if (userSkillError) console.error('user_skills upsert failed:', userSkillError)
 
-      // Update local state immediately so the skill node flips without a page reload.
-      // Also record the id so handleClose can fire the animation once the modal closes.
-      setUnlockedIds(prev => new Set([...prev, skillId]))
-      setUnlockedVideoMap(prev => ({ ...prev, [skillId]: videoUrl }))
-      lastUnlockedInModalRef.current = skillId
+      // Store the unlock for handleClose — state updates are deferred so the node
+      // only flips to unlocked once the modal is dismissed, not while it's still open.
+      pendingUnlockRef.current = { skillId, videoUrl }
     } else {
       const { error: attemptError } = await supabase.from('skill_attempts').insert({
         user_id: user.id,
@@ -163,16 +162,20 @@ export default function TrackPage() {
   }
 
   // Called when the modal is dismissed. If a pass happened during this session,
-  // fire the node's unlock burst animation now that the modal is out of the way.
+  // apply the unlock state now and fire the burst animation shortly after.
   function handleClose() {
-    const unlockedSkillId = lastUnlockedInModalRef.current
-    lastUnlockedInModalRef.current = null
+    const pending = pendingUnlockRef.current
+    pendingUnlockRef.current = null
     setSelectedSkill(null)
-    if (unlockedSkillId) {
+
+    if (pending) {
+      const { skillId, videoUrl } = pending
       setTimeout(() => {
-        setJustUnlockedId(unlockedSkillId)
+        setUnlockedIds(prev => new Set([...prev, skillId]))
+        setUnlockedVideoMap(prev => ({ ...prev, [skillId]: videoUrl }))
+        setJustUnlockedId(skillId)
         setTimeout(() => setJustUnlockedId(null), 700)
-      }, 1000)
+      }, 300)
     }
   }
 
@@ -445,6 +448,13 @@ export default function TrackPage() {
         onClose={handleClose}
         onAttemptComplete={handleAttemptComplete}
       />
+
+      <footer className={styles.footer}>
+        Exercise icons by{' '}
+        <a href="https://reddit.com/u/KFlightNinja" target="_blank" rel="noreferrer">
+          u/KFlightNinja
+        </a>
+      </footer>
     </main>
   )
 }

@@ -7,8 +7,8 @@
 }
 
 .circle {
-  width: 88px;
-  height: 88px;
+  width: 110px;
+  height: 110px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -26,8 +26,29 @@
 }
 
 .skillIcon {
-  width: 52px;
-  height: 52px;
+  width: 68px;
+  height: 68px;
+}
+
+.skillIconImg {
+  width: 68px;
+  height: 68px;
+  object-fit: contain;
+}
+
+/* Locked: barely visible — conveys inaccessibility */
+.icon_locked {
+  filter: brightness(0) invert(1) opacity(0.15);
+}
+
+/* Unlockable: bright white so it pops against the dark background */
+.icon_unlockable {
+  filter: brightness(0) invert(1) opacity(0.9);
+}
+
+/* Unlocked: white on the solid track-colour background */
+.icon_unlocked {
+  filter: brightness(0) invert(1);
 }
 
 /* Scale burst when a skill flips from unlockable → unlocked */

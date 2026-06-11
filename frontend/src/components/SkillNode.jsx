@@ -1,53 +1,44 @@
 import styles from './SkillNode.module.css'
-import {
-  PushUpIcon,
-  BentArmPlancheIcon,
-  HandstandIcon,
-  ArcherPushUpIcon,
-  StraddlePlancheIcon,
-  HandstandPushUpIcon,
-  OneArmPushUpIcon,
-  NinetyDegHSPUIcon,
-  PullUpIcon,
-  ExplosivePullUpIcon,
-  MuscleUpIcon,
-  ArcherPullUpIcon,
-  StraddleFrontLeverIcon,
-  OneArmPullUpIcon,
-  LegRaiseIcon,
-  ToesToBarIcon,
-  LSitIcon,
-  OneArmToesToBarIcon,
-  SquatIcon,
-  BulgarianSplitSquatIcon,
-  PistolSquatIcon,
-  DefaultIcon,
-} from './SkillIcons'
 
-// Maps Supabase skill names to their stick-figure icon components.
-// Any skill not listed falls back to DefaultIcon (standing figure).
-const SKILL_ICONS = {
-  'Push-up':               PushUpIcon,
-  'Bent Arm Planche':      BentArmPlancheIcon,
-  'Handstand':             HandstandIcon,
-  'Archer Push-up':        ArcherPushUpIcon,
-  'Straddle Planche':      StraddlePlancheIcon,
-  'Handstand Push-up':     HandstandPushUpIcon,
-  'One-arm Push-up':       OneArmPushUpIcon,
-  '90° Handstand Push-up': NinetyDegHSPUIcon,
-  'Pull-up':               PullUpIcon,
-  'Explosive Pull-up':     ExplosivePullUpIcon,
-  'Muscle-up':             MuscleUpIcon,
-  'Archer Pull-up':        ArcherPullUpIcon,
-  'Straddle Front Lever':  StraddleFrontLeverIcon,
-  'One-arm Pull-up':       OneArmPullUpIcon,
-  'Leg Raise':             LegRaiseIcon,
-  'Toes to Bar':           ToesToBarIcon,
-  'L-sit':                 LSitIcon,
-  'One-arm Toes to Bar':   OneArmToesToBarIcon,
-  'Squat':                 SquatIcon,
-  'Bulgarian Split Squat': BulgarianSplitSquatIcon,
-  'Pistol Squat':          PistolSquatIcon,
+// Maps Supabase skill names to filenames in /public/icons/.
+// Drop a PNG or SVG with a transparent background for any skill name listed here.
+// Any skill not listed falls back to DefaultIcon (generic standing figure).
+const SKILL_ICON_FILES = {
+  'Push-up':               'push_up.png',
+  'Bent Arm Planche':      'bent_arm_planche.png',
+  'Handstand':             'handstand.png',
+  'Archer Push-up':        'archer_push_up.png',
+  'Straddle Planche':      'planche.png',
+  'Handstand Push-up':     'handstand_push_up.png',
+  'One-arm Push-up':       'one_arm_push_up.png',
+  '90° Handstand Push-up': 'handstand_push_up.png',
+  'Pull-up':               'pull_up.png',
+  'Explosive Pull-up':     'pull_up.png',
+  'Muscle-up':             'muscle_up.png',
+  'Archer Pull-up':        'archer_pull_up.png',
+  'Straddle Front Lever':  'front_lever.png',
+  'One-arm Pull-up':       'one_arm_pull_up.png',
+  'Leg Raise':             'leg_raise.png',
+  'Toes to Bar':           'toes_to_bar.png',
+  'L-sit':                 'l_sit.png',
+  'One-arm Toes to Bar':   'toes_to_bar.png',
+  'Squat':                 'squat.png',
+  'Bulgarian Split Squat': 'split_squat.png',
+  'Pistol Squat':          'pistol_squat.png',
+}
+
+// Generic fallback — shown until a real image is dropped into /public/icons/
+function DefaultIcon({ className }) {
+  return (
+    <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
+      <circle cx={20} cy={7} r={5} fill="currentColor" />
+      <line stroke="currentColor" strokeWidth={6} strokeLinecap="round" x1={20} y1={13} x2={20} y2={26} />
+      <line stroke="currentColor" strokeWidth={6} strokeLinecap="round" x1={20} y1={18} x2={12} y2={14} />
+      <line stroke="currentColor" strokeWidth={6} strokeLinecap="round" x1={20} y1={18} x2={28} y2={14} />
+      <line stroke="currentColor" strokeWidth={6} strokeLinecap="round" x1={20} y1={26} x2={14} y2={35} />
+      <line stroke="currentColor" strokeWidth={6} strokeLinecap="round" x1={20} y1={26} x2={26} y2={35} />
+    </svg>
+  )
 }
 
 // state:             'locked' | 'unlockable' | 'unlocked'
@@ -59,10 +50,8 @@ export default function SkillNode({ skill, state, trackColor, triggerUnlockAnim 
   const isUnlocked   = state === 'unlocked'
   const isUnlockable = state === 'unlockable'
 
-  const Icon = SKILL_ICONS[skill.name] ?? DefaultIcon
+  const iconFile = SKILL_ICON_FILES[skill.name]
 
-  // Inline styles drive the dynamic per-track colour.
-  // CSS `color` propagates into the SVG via currentColor on every stroke/fill.
   const circleStyle = {
     borderColor:     isUnlockable || isUnlocked ? trackColor : undefined,
     backgroundColor: isUnlocked ? trackColor : undefined,
@@ -85,7 +74,15 @@ export default function SkillNode({ skill, state, trackColor, triggerUnlockAnim 
         className={`${styles.circle} ${triggerUnlockAnim ? styles.justUnlocked : ''}`}
         style={circleStyle}
       >
-        <Icon className={styles.skillIcon} />
+        {iconFile ? (
+          <img
+            src={`/icons/${iconFile}`}
+            alt={skill.name}
+            className={`${styles.skillIconImg} ${styles[`icon_${state}`]}`}
+          />
+        ) : (
+          <DefaultIcon className={styles.skillIcon} />
+        )}
       </div>
     </div>
   )

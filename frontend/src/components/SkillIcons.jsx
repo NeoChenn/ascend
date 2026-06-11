@@ -1,356 +1,368 @@
-// Stick-figure SVG icons for each skill, rendered inside the circular skill nodes.
-//
-// Design rules:
-//   - ViewBox 0 0 40 40
-//   - All lines/paths use stroke="currentColor" fill="none"
-//   - Head circle uses fill="currentColor"
-//   - Parent CSS `color` controls the entire icon colour automatically
-//   - strokeWidth 2, strokeLinecap "round", strokeLinejoin "round"
-//
-// Orientation:
-//   - Horizontal exercises: person faces RIGHT (head on right side)
-//   - Hanging exercises: bar at top
-//   - Ground standing exercises: head at top
+// Stick-figure icons — 40×40 viewBox, strokeWidth 6.
+// Thick round-capped lines read as filled silhouettes at 52px node size.
+// All colours driven by currentColor (CSS `color` on the parent node).
 
 const s = {
   stroke: 'currentColor',
-  strokeWidth: 2,
+  strokeWidth: 6,
   strokeLinecap: 'round',
   strokeLinejoin: 'round',
   fill: 'none',
 }
 
-function Head({ cx, cy, r = 3 }) {
+// Slightly thinner style for bars / equipment
+const b = {
+  stroke: 'currentColor',
+  strokeWidth: 4,
+  strokeLinecap: 'round',
+  fill: 'none',
+}
+
+// Silhouette style (v2) — thick round caps read as solid body mass at 52px display size.
+// sT = torso (~13px), sU = upper limbs/thighs (~9px), sL = forearms/shins (~6.5px).
+const sT = { stroke: 'currentColor', strokeWidth: 10, strokeLinecap: 'round', strokeLinejoin: 'round', fill: 'none' }
+const sU = { stroke: 'currentColor', strokeWidth: 7,  strokeLinecap: 'round', strokeLinejoin: 'round', fill: 'none' }
+const sL = { stroke: 'currentColor', strokeWidth: 5,  strokeLinecap: 'round', strokeLinejoin: 'round', fill: 'none' }
+
+function Head({ cx, cy, r = 5.5 }) {
+  return <circle cx={cx} cy={cy} r={r} fill="currentColor" />
+}
+
+// Filled joint dot — adds visual mass at shoulder / hip connection points
+function Dot({ cx, cy, r = 3 }) {
   return <circle cx={cx} cy={cy} r={r} fill="currentColor" />
 }
 
 // ─── PUSH TRACK ───────────────────────────────────────────────────────────────
 
-// Side view plank: body horizontal, arms straight down, feet on ground
 export function PushUpIcon({ className }) {
+  // Front-facing: head top, arms spread slightly downward, legs close together
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <Head cx={34} cy={11} />
-      <line {...s} x1={31} y1={14} x2={8} y2={18} />
-      <line {...s} x1={26} y1={15} x2={23} y2={25} />
-      <line {...s} x1={17} y1={17} x2={14} y2={25} />
-      <line {...s} x1={8}  y1={18} x2={5}  y2={25} />
-      <line {...s} x1={12} y1={19} x2={9}  y2={26} />
+      <Head cx={20} cy={6} r={5.5} />
+      <line {...sT} x1={20} y1={12} x2={20} y2={26} />   {/* body              */}
+      <line {...sU} x1={20} y1={13} x2={10} y2={19} />   {/* left arm          */}
+      <line {...sU} x1={20} y1={13} x2={30} y2={19} />   {/* right arm         */}
+      <line {...sU} x1={20} y1={26} x2={18} y2={36} />   {/* left leg          */}
+      <line {...sU} x1={20} y1={26} x2={22} y2={36} />   {/* right leg         */}
     </svg>
   )
 }
 
-// Horizontal body floating (no feet on ground), arms bent with visible elbows
 export function BentArmPlancheIcon({ className }) {
+  // Front-facing: upper arms go out, forearms hang down — bent elbow visible from front
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <Head cx={34} cy={14} />
-      <line {...s} x1={31} y1={16} x2={8} y2={16} />
-      <path {...s} d="M 26 16 L 22 23 L 18 21" />
-      <path {...s} d="M 14 16 L 10 23 L 6  21" />
-      <line {...s} x1={8} y1={16} x2={3} y2={12} />
-      <line {...s} x1={8} y1={16} x2={3} y2={20} />
+      <Head cx={20} cy={6} r={5} />
+      <line {...sT} x1={20} y1={12} x2={20} y2={26} />   {/* body                */}
+      <line {...sU} x1={20} y1={11} x2={13} y2={18} />   {/* left upper arm down  */}
+      <line {...sL} x1={13} y1={18} x2={13} y2={26} />   {/* left forearm vert    */}
+      <line {...sU} x1={20} y1={11} x2={27} y2={18} />   {/* right upper arm down */}
+      <line {...sL} x1={27} y1={18} x2={27} y2={26} />   {/* right forearm vert   */}
+      <line {...sU} x1={20} y1={26} x2={18} y2={36} />   {/* left leg            */}
+      <line {...sU} x1={20} y1={26} x2={22} y2={36} />   {/* right leg           */}
     </svg>
   )
 }
 
-// Inverted vertical: hands at bottom, arms straight, legs at top
 export function HandstandIcon({ className }) {
+  // Inverted: straight arms from floor, head between arms, torso+legs up
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <Head cx={20} cy={28} />
-      <line {...s} x1={12} y1={36} x2={16} y2={22} />
-      <line {...s} x1={28} y1={36} x2={24} y2={22} />
-      <line {...s} x1={20} y1={22} x2={20} y2={8}  />
-      <line {...s} x1={20} y1={8}  x2={15} y2={2}  />
-      <line {...s} x1={20} y1={8}  x2={25} y2={2}  />
+      <line {...sU} x1={13} y1={37} x2={16} y2={21} />  {/* L arm straight up     */}
+      <line {...sU} x1={27} y1={37} x2={24} y2={21} />  {/* R arm straight up     */}
+      <Head cx={20} cy={27} r={5} />                     {/* head between arms     */}
+      <line {...sT} x1={20} y1={21} x2={20} y2={9}  />  {/* torso toward ceiling  */}
+      <line {...sU} x1={20} y1={9}  x2={14} y2={3}  />  {/* L leg                 */}
+      <line {...sU} x1={20} y1={9}  x2={26} y2={3}  />  {/* R leg                 */}
     </svg>
   )
 }
 
-// Push-up position with one arm extended straight sideways (back)
 export function ArcherPushUpIcon({ className }) {
+  // Front-facing: right arm extends wide, left arm bent with forearm hanging down
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <Head cx={34} cy={11} />
-      <line {...s} x1={31} y1={14} x2={8}  y2={18} />
-      <line {...s} x1={25} y1={15} x2={23} y2={25} />
-      <line {...s} x1={16} y1={17} x2={4}  y2={15} />
-      <line {...s} x1={8}  y1={18} x2={5}  y2={25} />
-      <line {...s} x1={12} y1={19} x2={9}  y2={26} />
+      <Head cx={20} cy={6} r={5} />
+      <line {...sT} x1={20} y1={12} x2={20} y2={26} />   {/* body                */}
+      <line {...sU} x1={20} y1={13} x2={33} y2={10} />   {/* right arm extended  */}
+      <line {...sU} x1={20} y1={13} x2={10} y2={15} />   {/* left upper arm      */}
+      <line {...sL} x1={10} y1={15} x2={11} y2={23} />   {/* left forearm down   */}
+      <line {...sU} x1={20} y1={26} x2={18} y2={36} />   {/* left leg            */}
+      <line {...sU} x1={20} y1={26} x2={22} y2={36} />   {/* right leg           */}
     </svg>
   )
 }
 
-// Horizontal floating, arms straight down, legs spread wide (V shape at back)
 export function StraddlePlancheIcon({ className }) {
+  // Front-facing: arms spread nearly horizontal, legs spread wide in straddle — star shape
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <Head cx={34} cy={14} />
-      <line {...s} x1={31} y1={16} x2={8}  y2={16} />
-      <line {...s} x1={26} y1={16} x2={24} y2={26} />
-      <line {...s} x1={16} y1={16} x2={14} y2={26} />
-      <line {...s} x1={8}  y1={16} x2={3}  y2={10} />
-      <line {...s} x1={8}  y1={16} x2={3}  y2={22} />
+      <Head cx={20} cy={6} r={5} />
+      <line {...sT} x1={20} y1={12} x2={20} y2={26} />   {/* body               */}
+      <line {...sU} x1={20} y1={13} x2={10} y2={19} />   {/* left arm           */}
+      <line {...sU} x1={20} y1={13} x2={30} y2={19} />   {/* right arm          */}
+      <line {...sU} x1={20} y1={26} x2={6}  y2={36} />   {/* left straddle leg  */}
+      <line {...sU} x1={20} y1={26} x2={34} y2={36} />   {/* right straddle leg */}
     </svg>
   )
 }
 
-// Inverted with bent arms — elbows form a visible point on each side
 export function HandstandPushUpIcon({ className }) {
+  // Inverted: bracket arms — forearms vertical, upper arms horizontal (90° arm bend)
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <Head cx={20} cy={30} />
-      <path {...s} d="M 12 36 L 14 27 L 16 22" />
-      <path {...s} d="M 28 36 L 26 27 L 24 22" />
-      <line {...s} x1={20} y1={22} x2={20} y2={8} />
-      <line {...s} x1={20} y1={8}  x2={15} y2={2} />
-      <line {...s} x1={20} y1={8}  x2={25} y2={2} />
+      <line {...sU} x1={6}  y1={36} x2={6}  y2={22} />  {/* L forearm vertical  */}
+      <line {...sU} x1={6}  y1={22} x2={15} y2={22} />  {/* L upper arm horiz   */}
+      <line {...sU} x1={34} y1={36} x2={34} y2={22} />  {/* R forearm vertical  */}
+      <line {...sU} x1={34} y1={22} x2={25} y2={22} />  {/* R upper arm horiz   */}
+      <Head cx={20} cy={30} r={5} />                     {/* head inside bracket */}
+      <line {...sT} x1={20} y1={22} x2={20} y2={9}  />  {/* torso               */}
+      <line {...sU} x1={20} y1={9}  x2={14} y2={3}  />  {/* L leg               */}
+      <line {...sU} x1={20} y1={9}  x2={26} y2={3}  />  {/* R leg               */}
     </svg>
   )
 }
 
-// Push-up: one arm supporting below, other arm raised sideways
 export function OneArmPushUpIcon({ className }) {
+  // Front-facing: single arm extends right, short stub left = free arm tucked behind back
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <Head cx={34} cy={11} />
-      <line {...s} x1={31} y1={14} x2={8}  y2={18} />
-      <line {...s} x1={20} y1={16} x2={18} y2={26} />
-      <line {...s} x1={26} y1={15} x2={30} y2={21} />
-      <line {...s} x1={8}  y1={18} x2={3}  y2={24} />
-      <line {...s} x1={13} y1={19} x2={9}  y2={26} />
+      <Head cx={20} cy={6} r={5} />
+      <line {...sT} x1={20} y1={12} x2={20} y2={26} />   {/* body                     */}
+      <line {...sU} x1={20} y1={13} x2={10} y2={15} />   {/* left upper arm (support) */}
+      <line {...sL} x1={10} y1={15} x2={11} y2={23} />   {/* left forearm down        */}
+      <line {...sU} x1={20} y1={13} x2={26} y2={14} />   {/* right shoulder visible   */}
+      <line {...sL} x1={26} y1={14} x2={23} y2={22} />   {/* forearm behind back      */}
+      <line {...sU} x1={20} y1={26} x2={18} y2={36} />   {/* left leg                */}
+      <line {...sU} x1={20} y1={26} x2={22} y2={36} />   {/* right leg               */}
     </svg>
   )
 }
 
-// Inverted with very wide flared elbows — distinguishes from regular HSPU
 export function NinetyDegHSPUIcon({ className }) {
+  // Inverted: diagonal bent arms, head low near floor
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <Head cx={20} cy={31} />
-      <path {...s} d="M 10 36 L 6  26 L 16 22" />
-      <path {...s} d="M 30 36 L 34 26 L 24 22" />
-      <line {...s} x1={20} y1={22} x2={20} y2={8} />
-      <line {...s} x1={20} y1={8}  x2={15} y2={2} />
-      <line {...s} x1={20} y1={8}  x2={25} y2={2} />
+      <line {...sU} x1={13} y1={37} x2={7}  y2={27} />  {/* L upper arm         */}
+      <line {...sL} x1={7}  y1={27} x2={17} y2={22} />  {/* L forearm           */}
+      <line {...sU} x1={27} y1={37} x2={33} y2={27} />  {/* R upper arm         */}
+      <line {...sL} x1={33} y1={27} x2={23} y2={22} />  {/* R forearm           */}
+      <Head cx={20} cy={33} r={5} />                     {/* head near floor     */}
+      <line {...sT} x1={20} y1={22} x2={20} y2={9}  />  {/* torso               */}
+      <line {...sU} x1={20} y1={9}  x2={14} y2={3}  />  {/* L leg               */}
+      <line {...sU} x1={20} y1={9}  x2={26} y2={3}  />  {/* R leg               */}
     </svg>
   )
 }
 
 // ─── PULL TRACK ───────────────────────────────────────────────────────────────
 
-// Hanging vertically, arms extended up to bar, body straight
 export function PullUpIcon({ className }) {
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <line {...s} x1={8}  y1={4} x2={32} y2={4} />
-      <Head cx={20} cy={10} />
-      <line {...s} x1={20} y1={13} x2={12} y2={5} />
-      <line {...s} x1={20} y1={13} x2={28} y2={5} />
-      <line {...s} x1={20} y1={13} x2={20} y2={28} />
-      <line {...s} x1={20} y1={28} x2={15} y2={36} />
-      <line {...s} x1={20} y1={28} x2={25} y2={36} />
+      <line {...b}  x1={4}  y1={3}  x2={36} y2={3}  />   {/* bar             */}
+      <line {...sU} x1={11} y1={3}  x2={7}  y2={10} />   {/* L upper arm     */}
+      <line {...sL} x1={7}  y1={10} x2={18} y2={15} />   {/* L forearm       */}
+      <line {...sU} x1={29} y1={3}  x2={33} y2={10} />   {/* R upper arm     */}
+      <line {...sL} x1={33} y1={10} x2={22} y2={15} />   {/* R forearm       */}
+      <Head cx={20} cy={16} r={6} />
+      <line {...sT} x1={20} y1={22} x2={20} y2={30} />   {/* torso           */}
+      <line {...sU} x1={20} y1={30} x2={15} y2={38} />   {/* left leg        */}
+      <line {...sU} x1={20} y1={30} x2={25} y2={38} />   {/* right leg       */}
     </svg>
   )
 }
 
-// Chin above bar — bar is lower in the image, body raised above it
 export function ExplosivePullUpIcon({ className }) {
+  // Head breaks above bar level — chin over bar shows the explosive high position.
+  // Elbows swept wide and back = aggressive pull force, distinct from a regular pull-up.
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <line {...s} x1={8}  y1={14} x2={32} y2={14} />
-      <Head cx={20} cy={6} />
-      <line {...s} x1={20} y1={10} x2={12} y2={15} />
-      <line {...s} x1={20} y1={10} x2={28} y2={15} />
-      <line {...s} x1={20} y1={10} x2={20} y2={28} />
-      <line {...s} x1={20} y1={28} x2={15} y2={36} />
-      <line {...s} x1={20} y1={28} x2={25} y2={36} />
+      <line {...b}  x1={4}  y1={4}  x2={36} y2={4}  />   {/* bar                      */}
+      <line {...sU} x1={11} y1={4}  x2={5}  y2={10} />   {/* L upper arm wide back    */}
+      <line {...sL} x1={5}  y1={10} x2={17} y2={14} />   {/* L forearm to shoulder    */}
+      <line {...sU} x1={29} y1={4}  x2={35} y2={10} />   {/* R upper arm wide back    */}
+      <line {...sL} x1={35} y1={10} x2={23} y2={14} />   {/* R forearm to shoulder    */}
+      <Head cx={20} cy={7}  r={5}  />                     {/* head breaks above bar    */}
+      <line {...sT} x1={20} y1={14} x2={20} y2={24} />   {/* torso                    */}
+      <line {...sU} x1={20} y1={24} x2={15} y2={33} />   {/* left leg                 */}
+      <line {...sU} x1={20} y1={24} x2={25} y2={33} />   {/* right leg                */}
     </svg>
   )
 }
 
-// Body above bar in dip position — arms push DOWN onto bar from above
 export function MuscleUpIcon({ className }) {
+  // Body fully above bar, arms spread to bar, legs hanging below
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <line {...s} x1={8}  y1={20} x2={32} y2={20} />
-      <Head cx={20} cy={6} />
-      <line {...s} x1={20} y1={10} x2={10} y2={20} />
-      <line {...s} x1={20} y1={10} x2={30} y2={20} />
-      <line {...s} x1={20} y1={10} x2={20} y2={24} />
-      <line {...s} x1={20} y1={24} x2={15} y2={34} />
-      <line {...s} x1={20} y1={24} x2={25} y2={34} />
+      <line {...b}  x1={4}  y1={21} x2={36} y2={21} />   {/* bar — body is above it  */}
+      <Head cx={20} cy={6} r={5} />
+      <line {...sT} x1={20} y1={11} x2={20} y2={21} />   {/* torso above bar         */}
+      <line {...sU} x1={17} y1={14} x2={10} y2={21} />   {/* left arm to bar         */}
+      <line {...sU} x1={23} y1={14} x2={30} y2={21} />   {/* right arm to bar        */}
+      <line {...sU} x1={20} y1={21} x2={15} y2={32} />   {/* left leg below bar      */}
+      <line {...sU} x1={20} y1={21} x2={25} y2={32} />   {/* right leg below bar     */}
     </svg>
   )
 }
 
-// One arm pulling to bar (bent), other arm extended horizontally to side
 export function ArcherPullUpIcon({ className }) {
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <line {...s} x1={8}  y1={4} x2={28} y2={4} />
-      <Head cx={20} cy={10} />
-      <line {...s} x1={20} y1={13} x2={14} y2={5}  />
-      <line {...s} x1={20} y1={13} x2={34} y2={12} />
-      <line {...s} x1={20} y1={13} x2={20} y2={28} />
-      <line {...s} x1={20} y1={28} x2={15} y2={36} />
-      <line {...s} x1={20} y1={28} x2={25} y2={36} />
+      <line {...b}  x1={4}  y1={3}  x2={36} y2={3}  />
+      <line {...sU} x1={12} y1={3}  x2={7}  y2={10} />   {/* L upper arm (bent)       */}
+      <line {...sL} x1={7}  y1={10} x2={17} y2={15} />   {/* L forearm               */}
+      <line {...sU} x1={22} y1={20} x2={36} y2={3}  />   {/* R arm extended to bar end */}
+      <Head cx={20} cy={16} r={6} />
+      <line {...sT} x1={20} y1={22} x2={20} y2={30} />   {/* torso                   */}
+      <line {...sU} x1={20} y1={30} x2={15} y2={38} />   {/* left leg                */}
+      <line {...sU} x1={20} y1={30} x2={25} y2={38} />   {/* right leg               */}
     </svg>
   )
 }
 
-// Body horizontal face-up hanging from bar, legs spread (V shape at hips end)
 export function StraddleFrontLeverIcon({ className }) {
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <line {...s} x1={10} y1={6} x2={30} y2={6} />
-      <line {...s} x1={10} y1={6} x2={10} y2={16} />
-      <line {...s} x1={30} y1={6} x2={30} y2={16} />
-      <line {...s} x1={10} y1={16} x2={30} y2={16} />
-      <Head cx={34} cy={16} />
-      <line {...s} x1={10} y1={16} x2={4}  y2={10} />
-      <line {...s} x1={10} y1={16} x2={4}  y2={22} />
+      <line {...b}  x1={3}  y1={13} x2={30} y2={13} />   {/* bar (extended)           */}
+      <line {...sU} x1={22} y1={13} x2={22} y2={22} />   {/* single arm               */}
+      <line {...sT} x1={10} y1={22} x2={29} y2={22} />   {/* horizontal body          */}
+      <Head cx={35} cy={19} r={5} />                      {/* head offset from body cap */}
+      <line {...sU} x1={10} y1={22} x2={3}  y2={22} />   {/* straddle leg             */}
     </svg>
   )
 }
 
-// One arm gripping bar above, other arm hanging at side of body
 export function OneArmPullUpIcon({ className }) {
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <line {...s} x1={10} y1={4} x2={26} y2={4} />
-      <Head cx={20} cy={10} />
-      <line {...s} x1={20} y1={13} x2={14} y2={5}  />
-      <line {...s} x1={20} y1={13} x2={28} y2={20} />
-      <line {...s} x1={20} y1={13} x2={20} y2={28} />
-      <line {...s} x1={20} y1={28} x2={15} y2={36} />
-      <line {...s} x1={20} y1={28} x2={25} y2={36} />
+      <line {...b}  x1={4}  y1={3}  x2={30} y2={3}  />   {/* bar                    */}
+      <line {...sU} x1={12} y1={3}  x2={7}  y2={10} />   {/* upper arm              */}
+      <line {...sL} x1={7}  y1={10} x2={18} y2={15} />   {/* forearm                */}
+      <Head cx={20} cy={16} r={6} />
+      <line {...sT} x1={20} y1={22} x2={20} y2={30} />   {/* torso                  */}
+      <line {...sU} x1={20} y1={22} x2={26} y2={23} />   {/* free arm shoulder       */}
+      <line {...sL} x1={26} y1={23} x2={25} y2={30} />   {/* free arm tucked to body */}
+      <line {...sU} x1={20} y1={30} x2={15} y2={38} />   {/* left leg               */}
+      <line {...sU} x1={20} y1={30} x2={25} y2={38} />   {/* right leg              */}
     </svg>
   )
 }
 
 // ─── CORE TRACK ───────────────────────────────────────────────────────────────
 
-// Hanging, legs raised to 90° — legs horizontal forward
 export function LegRaiseIcon({ className }) {
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <line {...s} x1={8}  y1={4} x2={32} y2={4} />
-      <Head cx={20} cy={10} />
-      <line {...s} x1={20} y1={13} x2={12} y2={5} />
-      <line {...s} x1={20} y1={13} x2={28} y2={5} />
-      <line {...s} x1={20} y1={13} x2={20} y2={24} />
-      <line {...s} x1={20} y1={24} x2={32} y2={22} />
-      <line {...s} x1={20} y1={24} x2={32} y2={26} />
+      <line {...b}  x1={4}  y1={3}  x2={36} y2={3}  />  {/* bar                    */}
+      <line {...sU} x1={13} y1={3}  x2={13} y2={22} />  {/* L arm straight         */}
+      <line {...sU} x1={27} y1={3}  x2={27} y2={22} />  {/* R arm straight         */}
+      <Head cx={20} cy={17} r={5} />
+      <line {...sT} x1={20} y1={22} x2={20} y2={30} />  {/* torso                  */}
+      <line {...sU} x1={20} y1={30} x2={36} y2={28} />  {/* legs horizontal — top  */}
+      <line {...sU} x1={20} y1={30} x2={36} y2={32} />  {/* legs horizontal — bot  */}
     </svg>
   )
 }
 
-// Hanging, pike fold — feet reach back up to the bar (inverted-V body shape)
 export function ToesToBarIcon({ className }) {
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <line {...s} x1={8}  y1={4} x2={32} y2={4} />
-      <line {...s} x1={12} y1={4} x2={16} y2={14} />
-      <line {...s} x1={28} y1={4} x2={24} y2={14} />
-      <Head cx={20} cy={18} />
-      <line {...s} x1={20} y1={14} x2={20} y2={26} />
-      <line {...s} x1={20} y1={26} x2={13} y2={7} />
-      <line {...s} x1={20} y1={26} x2={27} y2={7} />
+      <line {...b}  x1={3}  y1={3}  x2={36} y2={3}  />  {/* bar                    */}
+      <line {...sU} x1={13} y1={3}  x2={13} y2={15} />  {/* L arm                  */}
+      <line {...sU} x1={23} y1={3}  x2={23} y2={15} />  {/* R arm                  */}
+      <Head cx={18} cy={20} r={5} />
+      <line {...sU} x1={18} y1={25} x2={18} y2={34} />  {/* torso (sU = cleaner hip junction) */}
+      <line {...sU} x1={18} y1={34} x2={35} y2={3}  />  {/* leg arcing up to bar   */}
     </svg>
   )
 }
 
-// Arms pressing down, body upright, legs horizontal forward — L shape
 export function LSitIcon({ className }) {
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <Head cx={20} cy={7} />
-      <line {...s} x1={20} y1={10} x2={20} y2={24} />
-      <line {...s} x1={20} y1={24} x2={12} y2={34} />
-      <line {...s} x1={20} y1={24} x2={28} y2={34} />
-      <line {...s} x1={20} y1={24} x2={36} y2={22} />
-      <line {...s} x1={20} y1={24} x2={36} y2={26} />
+      <Head cx={11} cy={8} r={5.5} />
+      <line {...sT} x1={11} y1={14} x2={11} y2={25} />   {/* torso (upright) */}
+      <line {...sU} x1={11} y1={19} x2={5}  y2={33} />   {/* near arm        */}
+      <line {...sU} x1={11} y1={19} x2={17} y2={33} />   {/* far arm         */}
+      <line {...sU} x1={11} y1={25} x2={37} y2={23} />   {/* upper leg       */}
+      <line {...sU} x1={11} y1={25} x2={37} y2={27} />   {/* lower leg       */}
     </svg>
   )
 }
 
-// One arm to bar, pike fold — same as toes to bar but one arm only
 export function OneArmToesToBarIcon({ className }) {
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <line {...s} x1={10} y1={4} x2={26} y2={4} />
-      <line {...s} x1={14} y1={4} x2={18} y2={14} />
-      <line {...s} x1={18} y1={14} x2={26} y2={18} />
-      <Head cx={22} cy={18} />
-      <line {...s} x1={20} y1={14} x2={20} y2={26} />
-      <line {...s} x1={20} y1={26} x2={14} y2={8} />
-      <line {...s} x1={20} y1={26} x2={26} y2={8} />
+      <line {...b}  x1={3}  y1={3}  x2={36} y2={3}  />  {/* bar                    */}
+      <line {...sU} x1={18} y1={3}  x2={18} y2={15} />  {/* single arm             */}
+      <Head cx={18} cy={20} r={5} />
+      <line {...sU} x1={18} y1={25} x2={18} y2={34} />  {/* torso (sU = cleaner hip junction) */}
+      <line {...sU} x1={18} y1={34} x2={35} y2={3}  />  {/* leg arcing up to bar   */}
     </svg>
   )
 }
 
 // ─── LEGS TRACK ───────────────────────────────────────────────────────────────
 
-// Deep squat: head top, body upright, thighs wide, lower legs straight
 export function SquatIcon({ className }) {
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <Head cx={20} cy={5} />
-      <line {...s} x1={20} y1={8}  x2={20} y2={20} />
-      <line {...s} x1={20} y1={14} x2={10} y2={12} />
-      <line {...s} x1={20} y1={14} x2={30} y2={12} />
-      <line {...s} x1={20} y1={20} x2={10} y2={28} />
-      <line {...s} x1={20} y1={20} x2={30} y2={28} />
-      <line {...s} x1={10} y1={28} x2={10} y2={36} />
-      <line {...s} x1={30} y1={28} x2={30} y2={36} />
+      <Head cx={20} cy={5} r={5.5} />
+      <line {...sT} x1={20} y1={11} x2={20} y2={21} />   {/* torso           */}
+      <line {...sL} x1={20} y1={16} x2={9}  y2={14} />   {/* left arm        */}
+      <line {...sL} x1={20} y1={16} x2={31} y2={14} />   {/* right arm       */}
+      <line {...sU} x1={20} y1={21} x2={11} y2={30} />   {/* left thigh      */}
+      <line {...sU} x1={20} y1={21} x2={29} y2={30} />   {/* right thigh     */}
+      <line {...sL} x1={11} y1={30} x2={12} y2={38} />   {/* left shin       */}
+      <line {...sL} x1={29} y1={30} x2={28} y2={38} />   {/* right shin      */}
     </svg>
   )
 }
 
-// Front leg bent, rear leg extended back on elevated surface (bench hint)
 export function BulgarianSplitSquatIcon({ className }) {
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <Head cx={20} cy={5} />
-      <line {...s} x1={20} y1={8}  x2={20} y2={20} />
-      <line {...s} x1={20} y1={14} x2={12} y2={18} />
-      <line {...s} x1={12} y1={28} x2={12} y2={36} />
-      <line {...s} x1={20} y1={20} x2={12} y2={28} />
-      <line {...s} x1={20} y1={20} x2={32} y2={22} />
-      <line {...s} x1={32} y1={22} x2={38} y2={22} />
-      <line {...s} x1={38} y1={22} x2={38} y2={26} />
+      <Head cx={14} cy={4} r={5} />
+      <line {...sT} x1={14} y1={9}  x2={14} y2={20} />  {/* torso                */}
+      <line {...sL} x1={14} y1={15} x2={5}  y2={19} />  {/* left arm             */}
+      <line {...sL} x1={14} y1={15} x2={23} y2={19} />  {/* right arm            */}
+      <line {...sU} x1={14} y1={20} x2={9}  y2={30} />  {/* front thigh          */}
+      <line {...sL} x1={9}  y1={30} x2={8}  y2={38} />  {/* front shin           */}
+      <line {...sU} x1={14} y1={20} x2={26} y2={24} />  {/* rear thigh           */}
+      <line {...sL} x1={26} y1={24} x2={30} y2={17} />  {/* rear shin — going up */}
+      <line {...b}  x1={27} y1={17} x2={37} y2={17} />  {/* elevated surface     */}
     </svg>
   )
 }
 
-// One leg in deep squat, other leg extended forward — pistol shape
 export function PistolSquatIcon({ className }) {
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <Head cx={20} cy={5} />
-      <line {...s} x1={20} y1={8}  x2={20} y2={20} />
-      <line {...s} x1={20} y1={14} x2={10} y2={12} />
-      <line {...s} x1={20} y1={20} x2={18} y2={30} />
-      <line {...s} x1={18} y1={30} x2={14} y2={38} />
-      <line {...s} x1={20} y1={20} x2={36} y2={17} />
+      <Head cx={8} cy={5} r={5} />
+      <line {...sT} x1={11} y1={10} x2={13} y2={22} />  {/* torso (slight fwd lean) */}
+      <line {...sL} x1={12} y1={16} x2={27} y2={13} />  {/* arms forward (balance)  */}
+      <line {...sU} x1={13} y1={22} x2={31} y2={19} />  {/* free leg horizontal     */}
+      <line {...sU} x1={13} y1={22} x2={18} y2={31} />  {/* squat thigh             */}
+      <line {...sL} x1={18} y1={31} x2={16} y2={39} />  {/* squat shin — vertical   */}
     </svg>
   )
 }
 
 // ─── DEFAULT ──────────────────────────────────────────────────────────────────
 
-// Shown for any skill name not in the SKILL_ICONS map
 export function DefaultIcon({ className }) {
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true">
-      <Head cx={20} cy={10} />
+      <Head cx={20} cy={7} />
       <line {...s} x1={20} y1={13} x2={20} y2={26} />
       <line {...s} x1={20} y1={18} x2={12} y2={14} />
       <line {...s} x1={20} y1={18} x2={28} y2={14} />
-      <line {...s} x1={20} y1={26} x2={14} y2={34} />
-      <line {...s} x1={20} y1={26} x2={26} y2={34} />
+      <Dot cx={20} cy={18} />
+      <Dot cx={20} cy={26} />
+      <line {...s} x1={20} y1={26} x2={14} y2={35} />
+      <line {...s} x1={20} y1={26} x2={26} y2={35} />
     </svg>
   )
 }
