@@ -693,6 +693,88 @@ The frontend needs to know the backend's URL (`VITE_API_URL`) before Vercel buil
 
 ---
 
+## Step 9b — Deployment: crashes and fixes
+*Date: June 2026*
+
+### What happened
+
+After the code changes in Step 9, deploying to Railway produced five distinct crashes — each one revealing a new problem only after the previous one was fixed. This entry documents every error, its cause, and what fixed it.
+
+---
+
+**Crash 1: Railway ignoring `nixpacks.toml` — couldn't install system libraries**
+
+The initial plan was to use `nixpacks.toml` to specify system libraries (like `libxcb`) that OpenCV needs on a headless server. This file was silently ignored. Root cause: Railway had switched its default builder from Nixpacks to a newer tool called **Railpack**. Railpack reads its own config format, not `nixpacks.toml`.
+
+Railpack is a "smart" builder — it auto-detects Python projects, installs `requirements.txt`, and starts the server. But it gives no way to install arbitrary OS-level packages. The escape hatch is a **Dockerfile**: when Railway detects a `Dockerfile` in the repo root, it stops using Railpack entirely and just executes the Docker instructions. This gives full control over the build environment. Lesson: when a deployment platform's auto-detection doesn't support your dependencies, a Dockerfile is always the override.
+
+---
+
+**Crash 2: `libxcb.so.1: cannot open shared object file`**
+
+Once running via Dockerfile, the first library error appeared: `opencv-python` requires X11 display libraries (`libxcb`, `libGL`, etc.) because it was compiled with full GUI support. A Railway container has no display. Fix: switch to `opencv-python-headless` in `requirements.txt` — this is the same library compiled without the display stack, intended for servers.
+
+---
+
+**Crash 3: `$PORT` is not a valid integer**
+
+Railway injects the HTTP port as a `$PORT` environment variable. The Dockerfile `CMD` was:
+```
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "$PORT"]
+```
+The JSON array form of `CMD` bypasses the shell entirely — `$PORT` is passed as the literal string `"$PORT"` rather than being expanded. Uvicorn tried to parse `"$PORT"` as an integer and crashed. Fix: wrap in `sh -c` so a shell handles the substitution:
+```
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+```
+The `${PORT:-8000}` syntax also provides a local fallback: if `PORT` is unset (e.g. during local Docker testing), it defaults to 8000.
+
+---
+
+**Crash 4: `POST //upload` returning 404**
+
+After the backend was running, video uploads from the Vercel frontend returned 404. Railway logs showed `POST //upload` — a double slash. The cause: `VITE_API_URL` on Vercel had been set with a trailing slash (`https://ascend-production-515a.up.railway.app/`). In `SkillModal.jsx`, the URL is constructed as `` `${import.meta.env.VITE_API_URL}/upload` ``, which produced `…railway.app//upload`. Fix: remove the trailing slash from the Vercel env var and redeploy Vercel (required because `VITE_` variables are baked into the JS bundle at build time, not read at runtime).
+
+---
+
+**Crash 5 (series): `libGLESv2.so.2`, `libEGL.so.1` — MediaPipe C bindings missing graphics libraries**
+
+The hardest set of errors. MediaPipe ships a pre-compiled C shared library (`libmediapipe_tasks_c.so`). This binary was compiled on a full desktop Linux with GPU support. When Python loads MediaPipe, the OS reads the binary's dependency list and tries to open every `.so` on it — OpenGL ES, EGL, Vulkan, GBM — **immediately at load time**, before any Python code runs.
+
+A previous fix had added `delegate=mp_python.BaseOptions.Delegate.CPU` to force CPU inference — this routes computation through the CPU rather than the GPU. But this flag only controls which compute *path* MediaPipe takes. The binary still has GPU library names in its link table, and the OS still tries to open them. If even one `.so` is missing, the load fails with `OSError`.
+
+`python:3.13-slim` is a minimal image that includes nothing but Python. Every graphics library was missing. They had to be installed via `apt-get` in the Dockerfile. The errors appeared one at a time because the dynamic linker reports only the first missing dependency:
+
+| Error | Package installed | What it provides |
+|---|---|---|
+| `libGLESv2.so.2` | `libgles2` | OpenGL ES (GLES) — embedded GPU rendering API |
+| `libEGL.so.1` | `libegl1` | EGL — interface between OpenGL and the OS window system |
+| (proactively) | `libvulkan1` | Vulkan — modern GPU compute API |
+| (proactively) | `libgbm1` | GBM — Generic Buffer Management, off-screen rendering surfaces |
+
+After adding all four, MediaPipe loaded successfully and the upload endpoint worked end-to-end.
+
+---
+
+### What I learned
+
+**Dynamic linking — the key concept behind all the `.so` errors:**
+When a compiled binary (`.so` or executable) is built, the compiler records the names of every shared library it uses — this list is called its *dynamic dependencies*. When the OS loads the binary, it resolves all those names to actual files on disk immediately, before executing any code. If a file is missing, the load fails with `OSError: libXxx.so: cannot open shared object file`. This is called *dynamic linking*, and it's why a library built on Ubuntu Desktop can fail to load on a Docker slim image — the slim image has none of the desktop libraries.
+
+**The difference between `docker-slim` and a desktop Linux environment:**
+`python:3.13-slim` deliberately removes everything not needed to run Python — including all graphics, display, and GPU libraries. These exist on every desktop Linux by default (because users have monitors and apps need to render things). A headless server never needs them unless it runs ML libraries like MediaPipe that were compiled with GPU support baked in. The Dockerfile's `apt-get install` is how you put them back.
+
+**Platform-as-a-Service vs Dockerfile:**
+PaaS builders (Railpack, Heroku buildpacks) are a convenience trade-off — zero config for standard apps, but limited control over the underlying OS environment. A Dockerfile is always the escape hatch and is supported by every container platform. For any Python project with unusual system dependencies (MediaPipe, OpenCV, video processing), a Dockerfile is the reliable path.
+
+**`VITE_` variables are baked into the bundle at build time:**
+Unlike server-side env vars which are read when the process starts, Vite inlines `VITE_*` variables directly into the compiled JavaScript bundle at build time. This means changing a `VITE_` variable in the Vercel dashboard requires a full redeploy — the old bundle is still serving the old URL until a new build runs.
+
+### What's next
+- Film and upload demo videos for skill nodes
+- Add form analysis for more exercises (squat, L-sit)
+
+---
+
 ## Step 10 — Buffer + stretch goals
 *Date: Early September 2026*
 
