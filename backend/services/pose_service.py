@@ -64,7 +64,11 @@ def extract_landmarks_from_video(video_bytes: bytes) -> dict:
     landmarks_per_frame = []
 
     try:
-        base_options = mp_python.BaseOptions(model_asset_path=_MODEL_PATH)
+        # Force CPU inference — Railway has no GPU and libGLESv2 is not available.
+        base_options = mp_python.BaseOptions(
+            model_asset_path=_MODEL_PATH,
+            delegate=mp_python.BaseOptions.Delegate.CPU,
+        )
 
         # VIDEO mode tracks joints across frames rather than re-detecting
         # from scratch each time — faster and more stable than IMAGE mode.
