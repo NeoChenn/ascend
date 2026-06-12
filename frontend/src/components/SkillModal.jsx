@@ -156,9 +156,10 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
       setResult({
         passed,
         checks,
-        repCount:  data.feedback.rep_count,
-        narrative: data.narrative ?? null,     // LLM coaching paragraph; null if API failed
-        landmarks: data.landmarks_per_frame,   // used by the skeleton draw loop
+        repCount:    data.feedback.rep_count,
+        holdSeconds: data.feedback.hold_seconds ?? null,  // only present for static holds (e.g. L-sit)
+        narrative:   data.narrative ?? null,
+        landmarks:   data.landmarks_per_frame,
       })
       setUploadState('result')
       onAttemptComplete(skill.id, passed, checks, file)
@@ -224,7 +225,9 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
               {result.passed ? '✓ Skill unlocked!' : '✗ Not quite — keep training'}
             </div>
             <p className={styles.repCount}>
-              {result.repCount} rep{result.repCount !== 1 ? 's' : ''} detected
+              {result.holdSeconds !== null
+                ? `${result.holdSeconds}s held`
+                : `${result.repCount} rep${result.repCount !== 1 ? 's' : ''} detected`}
             </p>
 
             {/* LLM coaching paragraph — omitted if the Gemini API call failed */}

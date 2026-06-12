@@ -46,7 +46,7 @@ def analyse_one_arm_toes_to_bar(
     phase_data = _detect_tob_rep_phases(landmarks_per_frame)
     reps: list[tuple[int, int]] = phase_data["reps"]
 
-    top_frames = [r[1] for r in reps]
+    top_frames = [reps[0][1]]
 
     genuine_reps = len(reps) if reps != [(0, len(landmarks_per_frame) - 1)] else 0
 

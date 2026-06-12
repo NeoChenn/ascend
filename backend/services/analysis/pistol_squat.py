@@ -271,8 +271,9 @@ def analyse_pistol_squat(
     reps: list[tuple[int, int]] = phase_data["reps"]
     working_angles: list[float] = phase_data["working_angles"]
 
-    bottom_frames = [r[0] for r in reps]
-    top_frames = [r[1] for r in reps]
+    first_rep = reps[0]
+    bottom_frames = [first_rep[0]]
+    top_frames = [first_rep[1]]
 
     working_leg = _identify_working_leg(landmarks_per_frame, bottom_frames)
     genuine_reps = len(reps) if reps != [(0, len(landmarks_per_frame) - 1)] else 0

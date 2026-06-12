@@ -168,8 +168,9 @@ def analyse_push_up(landmarks_per_frame: list[dict[str, dict[str, float]]]) -> d
     reps: list[tuple[int, int]] = phase_data["reps"]
     elbow_angles: list[float] = phase_data["elbow_angles"]
 
-    bottom_frames = [r[0] for r in reps]
-    top_frames = [r[1] for r in reps]
+    first_rep = reps[0]
+    bottom_frames = [first_rep[0]]
+    top_frames = [first_rep[1]]
 
     genuine_reps = len(reps) if reps != [(0, len(landmarks_per_frame) - 1)] else 0
 
