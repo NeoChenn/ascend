@@ -951,6 +951,68 @@ Updating the instructions to say "one clean rep, no setup or rest" is the user-f
 
 ---
 
+## Step 10d — Pull track form analysis (Explosive Pull-up, Muscle-up, Archer Pull-up, Straddle Front Lever, One-arm Pull-up)
+*Date: June 2026*
+
+### What I built
+
+Five new analysis files completing the entire pull track. Every pull track skill (6 of 6) now has automated form analysis — the full chain from Pull-up to One-arm Pull-up can be unlocked end-to-end.
+
+**`explosive_pull_up.py`:**
+Reuses pull-up rep detection and bottom-extension check. Replaces `_check_top_flexion` (chin-over-bar) with a new `_check_chest_to_bar` check: at the top frame, compare average shoulder y to average wrist y. In an explosive pull-up, the athlete pulls high enough that the chest reaches bar level — the shoulders should rise to the same height as the wrists (which are gripping the bar). Pass: `avg_wrist_y - avg_shoulder_y ≥ 0`. No kipping check — explosive momentum is the whole point.
+
+**`muscle_up.py`:**
+No rep detection. Two best-frame scans across all frames:
+1. `pull_depth` — minimum elbow angle < 70°. A muscle-up requires pulling the elbows past the bar, demanding a tighter angle than a chin-over-bar pull-up (≈90°).
+2. `above_bar_lockout` — any frame where `elbow_angle > 150°` AND `hip_y < wrist_y` (hips above bar). The dip transition isn't detected — too hard to isolate without knowing exact bar position — but if the athlete got above the bar with straight arms, the movement is complete.
+
+**`archer_pull_up.py`:**
+Per-side elbow tracking (not averaged). Compute `left_elbow_angles` and `right_elbow_angles` separately per frame. Rep detection runs on `min(left, right)` per frame — the working arm (more bent) always produces the smaller angle, so the minimum tracks the rep without knowing which arm is working. At the top frame: identify working arm (`min`) and assisting arm (`max`), then check working arm < 90° and assisting arm > 140°.
+
+**`straddle_front_lever.py`:**
+Static hold, same streak architecture as `lsit.py`. Per-frame criterion: body horizontal AND arms locked simultaneously. Body angle from horizontal is computed as `atan2(|hip_y - shoulder_y|, |hip_x - shoulder_x|)` — 0° = flat, 90° = hanging straight down. Pass: < 25°. Arms locked: elbow > 155°. Hold passes at ≥90 frames (~3s). Returns `hold_seconds` so the frontend displays "Xs held." The straddle leg position is not checked — indistinguishable from a full front lever from a side camera.
+
+**`one_arm_pull_up.py`:**
+Imports and reuses everything from `pull_up.py` wholesale (identical to `one_arm_toes_to_bar.py` pattern). Only the exercise name changes. From a side camera the geometry is identical — same elbow signal, same checks. The one-arm constraint is verified by the user filming with the gripping arm clearly visible.
+
+**`__init__.py` and `main.py`:**
+Added imports and `ANALYSERS` entries for all 5 new functions. Supabase `analysis_key` updated for all 5 skills.
+
+### What broke / what was hard
+
+Nothing broke. The patterns from previous steps transferred directly — the main challenge was deciding the right geometric check per exercise.
+
+### What I learned
+
+**Three distinct analysis patterns for one track:**
+The pull track contains exercises that don't fit a single pattern. Explosive pull-up and archer pull-up are rep-based (same local-extrema signal detection as pull-up). Muscle-up requires no rep detection — the two key positions (deep pull and above-bar lockout) can be found by a global scan. Straddle front lever is a static hold. Recognising these as distinct patterns and matching each exercise to the right one made the implementation straightforward.
+
+**The `min(left, right)` trick for asymmetric exercises:**
+For exercises where only one side drives the movement (archer pull-up, BSS, pistol squat), using the minimum elbow/knee angle per frame as the rep signal solves a chicken-and-egg problem: you can't identify which side is working without detecting the rep, but you need the rep signal to find the working side. The minimum always reflects the working side, so the signal is valid regardless of which arm is pulling.
+
+**Geometric discriminator: angle from horizontal vs angle from vertical:**
+`_check_torso_upright` in `_shared.py` measures angle from vertical (useful for squats, where the torso should be nearly vertical). The front lever needs angle from horizontal (the body should be nearly horizontal). Both use `atan2` but swap the `dx` and `dy` arguments. Understanding this distinction up front prevented a subtle but serious bug — using the wrong formula would have had the check pass when the body was vertical (hanging) and fail when horizontal (correct position).
+
+**What `muscle_up.py` can and can't check:**
+The dip transition (elbow moving from below the bar to above it) is the hardest part of a muscle-up technically, but it's also the hardest part to detect from a side camera without knowing the exact bar y-coordinate. Two checks — pull depth and above-bar lockout — verify the start and end of the above-bar portion. If both pass, the movement is complete. A future improvement could estimate bar position from the wrist coordinates and use it as a reference for the transition frames, but for a portfolio project this level of verification is sufficient and explainable.
+
+### Decisions made
+
+**No kipping check for explosive pull-up:**
+The standard pull-up check flags shoulder y-delta > 0.03 per frame as kipping. For an explosive pull-up, this threshold would fire almost immediately — the movement is *defined* by rapid upward acceleration. Omitting the check is correct: explosive momentum is the skill, not a form fault.
+
+**`above_bar_lockout` uses a single boolean card, not a measurement:**
+The check is binary — either a frame satisfying both conditions exists, or it doesn't. There's no meaningful scalar to report (no "how far above the bar"). `measurement: None` is honest. This is different from `pull_depth`, which reports the actual minimum elbow angle so the user knows how close they came.
+
+**Straddle front lever threshold: 25° from horizontal (not 20°):**
+The straddle position shifts the centre of mass forward compared to a full front lever, meaning the hips naturally sit slightly lower to counterbalance. A 20° threshold (borrowed from the plan) would be too strict for the straddle variant. 25° accommodates this without accepting a body position that's clearly not horizontal.
+
+### What's next
+- Push track exercises (Archer Push-up, Diamond Push-up, etc.)
+- Film and upload demo videos for skill nodes
+
+---
+
 ## Step 11 — Reflection
 <!-- Looking back at the whole project:
 - What are you most proud of technically?

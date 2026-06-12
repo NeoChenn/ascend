@@ -53,7 +53,13 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
 
 **Done:**
 - Video upload + MediaPipe pose extraction
-- Pull-up and push-up form analysis (angle-based, structured feedback cards)
+- Pull track form analysis: Pull-up, Explosive Pull-up, Muscle-up, Archer Pull-up, Straddle Front Lever, One-arm Pull-up (full pull track complete)
+  - Rep-based (pull-up, explosive pull-up, archer pull-up): elbow angle rep detection, first-rep-only evaluation
+  - Scan-based (muscle-up): no rep detection — scan all frames for pull_depth (min elbow < 70°) and above_bar_lockout
+  - Static hold (straddle front lever): ≥3s consecutive streak where body horizontal + arms locked simultaneously; returns hold_seconds
+  - Wholesale reuse (one-arm pull-up): identical to pull_up.py, exercise name only differs
+  - Archer pull-up uses per-side elbow angles (not averaged) to identify working vs assisting arm
+- Push-up form analysis (angle-based, structured feedback cards)
 - Legs track form analysis: Squat, Bulgarian Split Squat, Pistol Squat (all with rep detection + form checks)
 - Core track form analysis: Leg Raise, Toes to Bar, L-sit, One-arm Toes to Bar (L-sit is a static hold — pass = ≥3s consecutive hold where all criteria are simultaneously met; 3 diagnostic cards + 1 hold_duration card)
 - Rep counting with smoothed signal (window=11) + de-duplicated phase events to prevent overcounting

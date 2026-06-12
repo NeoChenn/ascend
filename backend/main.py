@@ -4,14 +4,19 @@ from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from services.analysis import (
+    analyse_archer_pull_up,
     analyse_bulgarian_split_squat,
+    analyse_explosive_pull_up,
     analyse_leg_raise,
     analyse_lsit,
+    analyse_muscle_up,
+    analyse_one_arm_pull_up,
     analyse_one_arm_toes_to_bar,
     analyse_pistol_squat,
     analyse_pull_up,
     analyse_push_up,
     analyse_squat,
+    analyse_straddle_front_lever,
     analyse_toes_to_bar,
 )
 from services.llm_service import generate_narrative_feedback
@@ -21,6 +26,11 @@ from services.pose_service import extract_landmarks_from_video
 # Add new exercises here as they are implemented — no other code needs to change.
 ANALYSERS = {
     "pull_up": analyse_pull_up,
+    "explosive_pull_up": analyse_explosive_pull_up,
+    "muscle_up": analyse_muscle_up,
+    "archer_pull_up": analyse_archer_pull_up,
+    "straddle_front_lever": analyse_straddle_front_lever,
+    "one_arm_pull_up": analyse_one_arm_pull_up,
     "push_up": analyse_push_up,
     "squat": analyse_squat,
     "bulgarian_split_squat": analyse_bulgarian_split_squat,
