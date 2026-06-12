@@ -5,10 +5,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from services.analysis import (
     analyse_bulgarian_split_squat,
+    analyse_leg_raise,
+    analyse_lsit,
+    analyse_one_arm_toes_to_bar,
     analyse_pistol_squat,
     analyse_pull_up,
     analyse_push_up,
     analyse_squat,
+    analyse_toes_to_bar,
 )
 from services.llm_service import generate_narrative_feedback
 from services.pose_service import extract_landmarks_from_video
@@ -21,6 +25,10 @@ ANALYSERS = {
     "squat": analyse_squat,
     "bulgarian_split_squat": analyse_bulgarian_split_squat,
     "pistol_squat": analyse_pistol_squat,
+    "leg_raise": analyse_leg_raise,
+    "toes_to_bar": analyse_toes_to_bar,
+    "lsit": analyse_lsit,
+    "one_arm_toes_to_bar": analyse_one_arm_toes_to_bar,
 }
 
 app = FastAPI()

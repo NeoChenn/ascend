@@ -55,6 +55,7 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
 - Video upload + MediaPipe pose extraction
 - Pull-up and push-up form analysis (angle-based, structured feedback cards)
 - Legs track form analysis: Squat, Bulgarian Split Squat, Pistol Squat (all with rep detection + form checks)
+- Core track form analysis: Leg Raise, Toes to Bar, L-sit, One-arm Toes to Bar (L-sit is a static hold — no rep detection, full-video average)
 - Rep counting with smoothed signal (window=11) + de-duplicated phase events to prevent overcounting
 - Supabase: schema (4 tables), RLS policies, storage buckets (demo-videos, unlock-videos)
 - Auth: login, signup, session persistence via AuthContext
@@ -72,7 +73,7 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
 - Deployment prep: hardcoded localhost URLs replaced with env vars, CORS origin configurable via `FRONTEND_URL`, `vercel.json` SPA rewrite rule added
 
 **Next:**
-- Core track form analysis (Leg Raise, Toes to Bar, L-sit)
+- Remaining push/pull track exercises (Explosive Pull-up, Muscle-up, Archer Push-up, etc.)
 - Film and upload demo videos for skill nodes
 
 ## Project structure (current)
@@ -108,7 +109,11 @@ calisthenics-coach/
 │   │       ├── push_up.py
 │   │       ├── squat.py
 │   │       ├── bulgarian_split_squat.py
-│   │       └── pistol_squat.py
+│   │       ├── pistol_squat.py
+│   │       ├── leg_raise.py
+│   │       ├── toes_to_bar.py
+│   │       ├── lsit.py
+│   │       └── one_arm_toes_to_bar.py
 │   └── models/
 │       └── pose_models.py             # Pydantic models
 └── CLAUDE.md

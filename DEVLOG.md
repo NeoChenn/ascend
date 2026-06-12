@@ -827,8 +827,58 @@ The function is identical in `bulgarian_split_squat.py` and `pistol_squat.py`, w
 Initially I considered measuring the rear knee angle in a BSS. But this is unreliable: the rear knee angle changes with both depth AND bench height, and the bench height is unknown. Instead, the check asks: "is the rear knee lower than the elevated rear ankle?" This is a stable geometric fact regardless of bench height — if the knee is below the foot level, the person has genuinely descended.
 
 ### What's next
-- Core track form analysis (Leg Raise, Toes to Bar, L-sit)
 - Film demo videos for skill nodes
+
+---
+
+## Step 9d — Core track form analysis (Leg Raise, Toes to Bar, L-sit, One-arm Toes to Bar)
+*Date: June 2026*
+
+### What I built
+
+Four new analysis files for the core track, plus two new shared utilities.
+
+**Shared utilities added to `_shared.py`:**
+- `_compute_hip_angles()` — the primary signal for all core exercises. Computes the shoulder-hip-ankle angle per frame, averaged across both sides. At hanging rest this is ~180° (body straight); at horizontal it's ~90°; at a full toes-to-bar pike it's <45°. One function covers all three rep-based exercises (see Step 9c for how `_compute_knee_angles` was the equivalent for legs).
+- `_check_leg_straightness()` — checks that the knee angle is > 150° at the top of the movement. Shared between `leg_raise.py` and `toes_to_bar.py` to avoid duplication.
+
+**`leg_raise.py`:** Rep detection using `_compute_hip_angles` (local MAX = hanging, local MIN < 110° = legs at horizontal). Three checks: height reached, leg straightness, no swinging.
+
+**`toes_to_bar.py`:** Same rep structure as leg raise but stricter top threshold (local MIN < 60° — a full pike to touch the bar). Height check uses y-coordinate comparison rather than angle (see Decisions).
+
+**`lsit.py`:** Fundamentally different — a static hold with no rep detection. All three checks average across the entire video. `rep_count` is always 0.
+
+**`one_arm_toes_to_bar.py`:** Imports and reuses the rep detection and check functions from `toes_to_bar.py` directly. The only change is the exercise name in the return dict (see Decisions).
+
+### What broke / what was hard
+
+Nothing broke. The patterns from Steps 5, 6, and 9c transferred cleanly — the main challenge was design, not debugging.
+
+### What I learned
+
+**The L-sit breaks the rep-counting pattern — and that's correct:**
+Every previous exercise (pull-up, push-up, squat, leg raise, etc.) produces a wave signal — angle goes from a rest position, moves to a peak, and returns. The L-sit has no wave. The signal is (ideally) a flat line held near 90°. Trying to detect "reps" on a flat line would produce garbage. The right approach is to abandon the rep-detection architecture entirely for static holds and average across the whole video. `rep_count = 0` is honest: an L-sit is measured in seconds, not reps.
+
+**Positional checks vs angle checks — when each is right:**
+Every previous check has been angle-based (is this joint bent enough?). The toes-to-bar height check is different: "did the toes reach the bar?" The bar is at wrist height — a fixed physical object. The angle of the hip joint can't tell you whether the toes touched the bar, because the bar's position in the frame varies per user and camera setup. A y-coordinate comparison (`ankle_y ≤ wrist_y`) answers the question directly, because the wrists are gripping the bar so they ARE the bar's position.
+
+**Monitoring hips (not shoulders) for swing detection:**
+The `_check_no_swing` function monitors hip y-position rather than shoulder y-position (which `_check_kipping` in `pull_up.py` uses). In a hanging leg raise, the hips are what swing — a hip jerk provides the momentum that drives the legs up. The shoulders stay relatively fixed because the hands are gripping the bar. Monitoring the wrong landmark would miss the actual swing.
+
+### Decisions made
+
+**One-arm Toes to Bar reuses Toes to Bar analysis wholesale:**
+From a side camera, a one-arm toes to bar and a two-arm toes to bar are geometrically identical — the hip angle, the height reached, and the leg straightness are the same checks. Whether one or two hands are on the bar is not detectable via pose landmarks from the side. The decision: reuse all existing logic and rely on the user filming with the gripping hand clearly visible. This is an intentional "trust the user" tradeoff — the analysis confirms the form quality, not the specific grip variation. An alternative would be a front-facing camera to see both arms, but this would break every other check that requires a side view.
+
+**Prerequisite chain determines implementation order:**
+The order was: Leg Raise (entry point) → Toes to Bar and L-sit (both require Leg Raise) → One-arm Toes to Bar (requires Toes to Bar). This is the same bottom-up principle from Step 9c: implementing One-arm Toes to Bar before Toes to Bar would create dead code, since the skill can never be reached.
+
+**`_check_leg_straightness` in `_shared.py`, not duplicated:**
+Both `leg_raise.py` and `toes_to_bar.py` need the same knee-extension check at the top of the movement. Since it's used in two files and has no exercise-specific logic, it belongs in `_shared.py`. This is different from `_identify_working_leg` in the legs track (kept local) — that function had exercise-specific semantics. A check that simply asks "are the knees straight?" is genuinely general.
+
+### What's next
+- Film and upload demo videos for skill nodes
+- Remaining push and pull track exercises (Explosive Pull-up, Muscle-up, Archer Push-up, etc.)
 
 ---
 

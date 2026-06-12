@@ -241,3 +241,88 @@ def _check_torso_upright(
         "message": message,
         "measurement": round(avg_lean, 1),
     }
+
+
+def _compute_hip_angles(
+    landmarks_per_frame: list[dict[str, dict[str, float]]],
+) -> list[float]:
+    """
+    Compute the average left+right hip flexion angle (shoulder-hip-ankle) per frame.
+
+    This measures how much the legs are raised relative to the torso — the primary
+    signal for all hanging core exercises (leg raise, toes to bar, L-sit).
+
+    Landmark indices used (MediaPipe):
+      Left:  shoulder (11) → hip (23) → ankle (27)
+      Right: shoulder (12) → hip (24) → ankle (28)
+
+    Angle interpretation:
+      ~180° = body hanging straight down (rest position)
+      ~90°  = legs raised to horizontal
+      <45°  = full pike (toes approaching or touching bar)
+    """
+    angles: list[float] = []
+    for frame in landmarks_per_frame:
+        left_angle = calculate_angle(
+            frame["left_shoulder"], frame["left_hip"], frame["left_ankle"]
+        )
+        right_angle = calculate_angle(
+            frame["right_shoulder"], frame["right_hip"], frame["right_ankle"]
+        )
+        angles.append((left_angle + right_angle) / 2)
+    return angles
+
+
+def _check_leg_straightness(
+    landmarks_per_frame: list[dict[str, dict[str, float]]],
+    top_frame_indices: list[int],
+) -> dict:
+    """
+    Check that knees remain extended at the top of a leg raise movement.
+
+    Bending the knees at the top is a common cheat that reduces the demand on
+    the hip flexors. A knee angle above 150° indicates the legs are adequately
+    straight. Averaged across both sides at the detected top frames.
+    """
+    knee_angles: list[float] = []
+
+    for idx in top_frame_indices:
+        if idx >= len(landmarks_per_frame):
+            continue
+        frame = landmarks_per_frame[idx]
+
+        for hip_key, knee_key, ankle_key in [
+            ("left_hip", "left_knee", "left_ankle"),
+            ("right_hip", "right_knee", "right_ankle"),
+        ]:
+            if any(frame[k]["visibility"] < 0.5 for k in [hip_key, knee_key, ankle_key]):
+                continue
+            knee_angles.append(
+                calculate_angle(frame[hip_key], frame[knee_key], frame[ankle_key])
+            )
+
+    if not knee_angles:
+        return {
+            "name": "leg_straightness",
+            "passed": False,
+            "message": "Could not assess leg straightness — knee landmarks were not clearly visible at the top.",
+            "measurement": None,
+        }
+
+    avg_angle = sum(knee_angles) / len(knee_angles)
+    passed = avg_angle > 150
+
+    if passed:
+        message = f"Good leg straightness — knees were {avg_angle:.0f}° at the top."
+    else:
+        message = (
+            f"Knee angle at the top was {avg_angle:.0f}° — keep your legs straight "
+            "throughout. Bending at the knees reduces the effectiveness of the movement."
+        )
+
+    return {
+        "name": "leg_straightness",
+        "passed": passed,
+        "message": message,
+        "measurement": round(avg_angle, 1),
+    }
