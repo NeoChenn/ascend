@@ -3,6 +3,7 @@ import math
 import numpy as np
 
 
+
 def calculate_angle(
     a: dict[str, float],
     b: dict[str, float],
@@ -140,4 +141,103 @@ def _check_body_alignment(
         "passed": passed,
         "message": message,
         "measurement": round(avg_angle, 1),
+    }
+
+
+def _compute_knee_angles(
+    landmarks_per_frame: list[dict[str, dict[str, float]]],
+) -> list[float]:
+    """
+    Compute the average left+right knee angle (hip-knee-ankle) for every frame.
+
+    Averaging both sides handles side-on cameras where one leg may be occluded;
+    MediaPipe mirrors joints so both sides produce a reasonable signal.
+
+    Landmark indices used (MediaPipe):
+      Left:  hip (23) → knee (25) → ankle (27)
+      Right: hip (24) → knee (26) → ankle (28)
+    """
+    angles: list[float] = []
+    for frame in landmarks_per_frame:
+        left_angle = calculate_angle(
+            frame["left_hip"], frame["left_knee"], frame["left_ankle"]
+        )
+        right_angle = calculate_angle(
+            frame["right_hip"], frame["right_knee"], frame["right_ankle"]
+        )
+        angles.append((left_angle + right_angle) / 2)
+    return angles
+
+
+def _check_torso_upright(
+    landmarks_per_frame: list[dict[str, dict[str, float]]],
+    bottom_frame_indices: list[int],
+) -> dict:
+    """
+    Check that the torso stays within ~45° of vertical at the bottom of a squat.
+
+    We measure the angle between the shoulder→hip vector and a true vertical
+    reference. This is different from _check_body_alignment, which measures hip
+    sag in a plank — here we're measuring forward lean in a standing movement.
+
+    We only check at the bottom frames because that is where forward lean is worst.
+
+    In MediaPipe normalised coords, y increases downward, so the torso vector from
+    hip to shoulder has a negative y-component (shoulder sits at a smaller y than hip).
+    The lean angle is computed with atan2(horizontal_displacement, vertical_displacement).
+    """
+    lean_angles: list[float] = []
+
+    for idx in bottom_frame_indices:
+        if idx >= len(landmarks_per_frame):
+            continue
+        frame = landmarks_per_frame[idx]
+
+        for shoulder_key, hip_key in [
+            ("left_shoulder", "left_hip"),
+            ("right_shoulder", "right_hip"),
+        ]:
+            shoulder = frame[shoulder_key]
+            hip = frame[hip_key]
+
+            if shoulder["visibility"] < 0.5 or hip["visibility"] < 0.5:
+                continue
+
+            dx = shoulder["x"] - hip["x"]
+            dy = shoulder["y"] - hip["y"]  # negative: shoulder is above hip
+
+            if math.sqrt(dx**2 + dy**2) == 0:
+                continue
+
+            # Angle from vertical = arctan(horizontal / vertical component)
+            lean_angle = math.degrees(math.atan2(abs(dx), abs(dy)))
+            lean_angles.append(lean_angle)
+
+    if not lean_angles:
+        return {
+            "name": "torso_upright",
+            "passed": False,
+            "message": (
+                "Could not assess torso angle — shoulder or hip landmarks "
+                "were not clearly visible at the bottom position."
+            ),
+            "measurement": None,
+        }
+
+    avg_lean = sum(lean_angles) / len(lean_angles)
+    passed = avg_lean < 45
+
+    if passed:
+        message = f"Good torso position — forward lean at the bottom was {avg_lean:.0f}°."
+    else:
+        message = (
+            f"Torso was leaning {avg_lean:.0f}° forward at the bottom. "
+            "Try to keep your chest up — this often indicates tight ankles or hips."
+        )
+
+    return {
+        "name": "torso_upright",
+        "passed": passed,
+        "message": message,
+        "measurement": round(avg_lean, 1),
     }

@@ -54,6 +54,7 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
 **Done:**
 - Video upload + MediaPipe pose extraction
 - Pull-up and push-up form analysis (angle-based, structured feedback cards)
+- Legs track form analysis: Squat, Bulgarian Split Squat, Pistol Squat (all with rep detection + form checks)
 - Rep counting with smoothed signal (window=11) + de-duplicated phase events to prevent overcounting
 - Supabase: schema (4 tables), RLS policies, storage buckets (demo-videos, unlock-videos)
 - Auth: login, signup, session persistence via AuthContext
@@ -71,7 +72,7 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
 - Deployment prep: hardcoded localhost URLs replaced with env vars, CORS origin configurable via `FRONTEND_URL`, `vercel.json` SPA rewrite rule added
 
 **Next:**
-- Deploy: push to GitHub → Railway (backend) → Vercel (frontend) → wire env vars together
+- Core track form analysis (Leg Raise, Toes to Bar, L-sit)
 - Film and upload demo videos for skill nodes
 
 ## Project structure (current)
@@ -96,15 +97,18 @@ calisthenics-coach/
 │   │   ├── App.jsx                    # routes: /, /skill-tree, /track/:trackId, /login, /signup
 │   │   └── supabaseClient.js          # single shared Supabase client
 ├── backend/
-│   ├── main.py                        # FastAPI app, /upload endpoint
+│   ├── main.py                        # FastAPI app, /upload endpoint, ANALYSERS dispatch dict
 │   ├── database.py                    # single shared Supabase client
 │   ├── services/
 │   │   ├── pose_service.py            # MediaPipe landmark extraction
 │   │   └── analysis/
-│   │       ├── __init__.py            # exports analyse_pull_up, analyse_push_up
-│   │       ├── _shared.py             # calculate_angle, smoothing, body alignment
+│   │       ├── __init__.py            # exports all analyser functions
+│   │       ├── _shared.py             # calculate_angle, smoothing, body/torso alignment, knee angles
 │   │       ├── pull_up.py
-│   │       └── push_up.py
+│   │       ├── push_up.py
+│   │       ├── squat.py
+│   │       ├── bulgarian_split_squat.py
+│   │       └── pistol_squat.py
 │   └── models/
 │       └── pose_models.py             # Pydantic models
 └── CLAUDE.md

@@ -775,6 +775,63 @@ Unlike server-side env vars which are read when the process starts, Vite inlines
 
 ---
 
+## Step 9c — Legs track form analysis (Squat, Bulgarian Split Squat, Pistol Squat)
+*Date: June 2026*
+
+### What I built
+
+Three new analysis files — one per skill in the legs track — plus two additions to `_shared.py` and a refactor of the `/upload` dispatch in `main.py`.
+
+**Shared utilities added to `_shared.py`:**
+- `_compute_knee_angles()` — analogous to `_compute_elbow_angles()` from Steps 5/6. Computes the average hip-knee-ankle angle for both legs per frame, using landmarks 23/25/27 (left) and 24/26/28 (right).
+- `_check_torso_upright()` — checks that the torso stays within 45° of vertical at the bottom frames of a squat movement. Different from `_check_body_alignment` (which checks shoulder→hip→knee sag in a plank position) — see Decisions section.
+
+**New analysis files:**
+
+- `backend/services/analysis/squat.py` — three checks: depth (knee < 100° at bottom), lockout (knee > 155° at top), torso upright at bottom frames.
+- `backend/services/analysis/bulgarian_split_squat.py` — three checks: front-knee depth (< 105°), rear knee descent (rear knee must go below the elevated rear foot level), torso upright. Also identifies which leg is the working leg.
+- `backend/services/analysis/pistol_squat.py` — three checks: depth (knee < 80° — stricter than squat), lockout, free leg extension (free leg must be held straight forward, hip-knee-ankle > 150°). Also identifies working leg.
+
+**`main.py` refactor:**
+Replaced the `if exercise == "push_up" … else … pull_up` chain with a `ANALYSERS` dict mapping exercise names to functions. Adding a new exercise now only requires touching that dict. Also fixed a latent bug: if `exercise` had no analyser (a skill with `analysis_key = null`), the old code would silently run pull-up analysis instead. The new code sets `feedback = None` and `narrative = None`, which is honest.
+
+**Supabase:**
+Set `analysis_key` to `"squat"`, `"bulgarian_split_squat"`, and `"pistol_squat"` for the three legs skills — the whole track is now unlockable end-to-end.
+
+### What I learned
+
+**Working leg identification — the min() trick:**
+For BSS and pistol squat, I need to know which leg is the working leg before I can check its depth, but I also need the depth signal to detect where the bottom frames are. This is a chicken-and-egg problem. Solution: use `min(left_knee_angle, right_knee_angle)` per frame as the rep-tracking signal. The working (more bent) leg will always produce the smaller angle, so the minimum reliably tracks it without knowing which leg it is in advance. Then, once bottom frames are detected, I look at which leg had the smaller angle at those frames — that's the working leg.
+
+**Torso lean vs hip sag — why a new check was needed:**
+`_check_body_alignment` from Steps 5/6 measures the shoulder→hip→knee angle, which detects hip sag in a plank (push-up or pull-up body position). For a squat, this angle is *supposed* to change — the person is bending. What we actually want for a squat is to measure how much the torso (shoulder→hip vector) deviates from vertical. These are geometrically different questions that happen to use the same joints, which is why a new function was needed rather than reusing the existing one.
+
+**Why check torso lean only at bottom frames:**
+If you average torso lean across the entire video, the standing portions (where lean ≈ 0°) drag the average down and mask a genuinely excessive lean at the bottom. The bottom of the squat is where forward lean is worst and most relevant to form, so that's where to check.
+
+**Implementation note — rep detection for squats is the inverse of pull-ups:**
+A pull-up has a local MAX at the bottom (arms straight, ~180°) and a local MIN at the top (arms bent, ~60°). A squat has a local MAX at the top (knees straight, ~170°) and a local MIN at the bottom (knees bent, ~80–100°). The algorithm is identical (see Step 5); only which extreme is "bottom" vs "top" changes. A regular squat uses < 100° for the bottom threshold; a pistol squat uses < 80° because it demands deeper knee flexion.
+
+### Decisions made
+
+**Implement bottom-up within the prerequisite chain:**
+The decision to start with Squat (rather than Pistol Squat, which is more interesting) was deliberate. Pistol Squat has Bulgarian Split Squat as a prerequisite, which has Squat as a prerequisite. If Squat has no analysis, users can never unlock it, which means the Bulgarian Split Squat is permanently locked, which means Pistol Squat is permanently locked. Analysis in the wrong order produces dead code.
+
+**105° threshold for BSS depth (vs 100° for squat):**
+The elevated rear foot limits hip mobility slightly compared to a bilateral squat — reaching exactly 90° of front-knee flexion is harder and less important than in a regular squat. 105° is lenient enough to reward a genuine lunge without penalising the ROM difference.
+
+**`_identify_working_leg` kept local to each file, not added to `_shared.py`:**
+The function is identical in `bulgarian_split_squat.py` and `pistol_squat.py`, which looks like a duplication. But it's a tiny helper (10 lines), and more importantly, `_shared.py` is for truly general utilities that work across exercise types (angle calculation, smoothing, sag check). "Which leg is working" is conceptually specific to split/single-leg movements. Keeping it in each file avoids making the shared module carry exercise-specific logic.
+
+**Rear knee descent check — binary, not angle-based:**
+Initially I considered measuring the rear knee angle in a BSS. But this is unreliable: the rear knee angle changes with both depth AND bench height, and the bench height is unknown. Instead, the check asks: "is the rear knee lower than the elevated rear ankle?" This is a stable geometric fact regardless of bench height — if the knee is below the foot level, the person has genuinely descended.
+
+### What's next
+- Core track form analysis (Leg Raise, Toes to Bar, L-sit)
+- Film demo videos for skill nodes
+
+---
+
 ## Step 10 — Buffer + stretch goals
 *Date: Early September 2026*
 

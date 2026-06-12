@@ -3,9 +3,25 @@ import os
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from services.analysis import analyse_pull_up, analyse_push_up
+from services.analysis import (
+    analyse_bulgarian_split_squat,
+    analyse_pistol_squat,
+    analyse_pull_up,
+    analyse_push_up,
+    analyse_squat,
+)
 from services.llm_service import generate_narrative_feedback
 from services.pose_service import extract_landmarks_from_video
+
+# Maps the exercise value sent by the frontend to the correct analyser function.
+# Add new exercises here as they are implemented — no other code needs to change.
+ANALYSERS = {
+    "pull_up": analyse_pull_up,
+    "push_up": analyse_push_up,
+    "squat": analyse_squat,
+    "bulgarian_split_squat": analyse_bulgarian_split_squat,
+    "pistol_squat": analyse_pistol_squat,
+}
 
 app = FastAPI()
 
@@ -32,20 +48,22 @@ async def upload(file: UploadFile = File(...), exercise: str = Form(...)):
     File(...) and Form(...) tell FastAPI to read from form data rather than a
     JSON body, which is the default for POST requests.
 
-    exercise must be one of: "pull_up", "push_up"
+    exercise must match a key in ANALYSERS (e.g. "pull_up", "squat").
+    Skills with no analyser yet return null feedback and null narrative.
     """
     print(f"Received file: {file.filename} (exercise: {exercise})")
 
     video_bytes = await file.read()
     pose_data = extract_landmarks_from_video(video_bytes)
 
-    if exercise == "push_up":
-        feedback = analyse_push_up(pose_data["landmarks_per_frame"])
+    analyser = ANALYSERS.get(exercise)
+    if analyser:
+        feedback = analyser(pose_data["landmarks_per_frame"])
+        # Narrative is generated after analysis so the checks array is already available.
+        # Returns None on failure — the frontend handles both cases gracefully.
+        narrative = generate_narrative_feedback(exercise, feedback["checks"])
     else:
-        feedback = analyse_pull_up(pose_data["landmarks_per_frame"])
-
-    # Narrative is generated after analysis so the checks array is already available.
-    # Returns None on failure — the frontend handles both cases gracefully.
-    narrative = generate_narrative_feedback(exercise, feedback["checks"])
+        feedback = None
+        narrative = None
 
     return {"filename": file.filename, **pose_data, "feedback": feedback, "narrative": narrative}
