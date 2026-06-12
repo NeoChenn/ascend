@@ -5,18 +5,22 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from services.analysis import (
     analyse_archer_pull_up,
+    analyse_archer_push_up,
+    analyse_bent_arm_planche,
     analyse_bulgarian_split_squat,
     analyse_explosive_pull_up,
     analyse_leg_raise,
     analyse_lsit,
     analyse_muscle_up,
     analyse_one_arm_pull_up,
+    analyse_one_arm_push_up,
     analyse_one_arm_toes_to_bar,
     analyse_pistol_squat,
     analyse_pull_up,
     analyse_push_up,
     analyse_squat,
     analyse_straddle_front_lever,
+    analyse_straddle_planche,
     analyse_toes_to_bar,
 )
 from services.llm_service import generate_narrative_feedback
@@ -32,6 +36,10 @@ ANALYSERS = {
     "straddle_front_lever": analyse_straddle_front_lever,
     "one_arm_pull_up": analyse_one_arm_pull_up,
     "push_up": analyse_push_up,
+    "bent_arm_planche": analyse_bent_arm_planche,
+    "straddle_planche": analyse_straddle_planche,
+    "archer_push_up": analyse_archer_push_up,
+    "one_arm_push_up": analyse_one_arm_push_up,
     "squat": analyse_squat,
     "bulgarian_split_squat": analyse_bulgarian_split_squat,
     "pistol_squat": analyse_pistol_squat,

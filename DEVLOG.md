@@ -1013,6 +1013,54 @@ The straddle position shifts the centre of mass forward compared to a full front
 
 ---
 
+## Step 10e — Push track form analysis (Bent Arm Planche, Straddle Planche, Archer Push-up, One-arm Push-up)
+*Date: June 2026*
+
+### What I built
+
+Four new analysis files for the push track — the four exercises whose form is detectable from a standard side camera without any new inverted-pose logic. Three branches of the push tree are now partially or fully analysable. The remaining three skills (Handstand, Handstand Push-up, 90° Handstand Push-up) require inverted-position detection and are deferred.
+
+**`bent_arm_planche.py`:**
+Static hold streak, same architecture as `lsit.py` and `straddle_front_lever.py`. Two per-frame criteria: body horizontal (`_compute_body_angle_from_horizontal` from `straddle_front_lever.py`, pass < 25°) AND arms bent (avg elbow < 110°). The upper bound on elbow angle is what distinguishes this from the straddle planche — if the arms straighten it becomes a different skill. Pass: ≥90 consecutive frames (~3s) where both criteria hold simultaneously. Returns `hold_seconds`.
+
+**`straddle_planche.py`:**
+The shortest analyser in the project. The straddle planche and straddle front lever are geometrically identical from a side camera — body horizontal + arms straight, with MediaPipe unable to distinguish floor support from bar support. The entire function body is: call `analyse_straddle_front_lever`, set `result["exercise"] = "straddle_planche"`, return. ~10 lines.
+
+**`archer_push_up.py`:**
+Same per-side elbow tracking as `archer_pull_up.py`, but the push-up signal is inverted: local MIN = bottom (chest near floor, < 100°), local MAX = top (arms extended, > 150°). The min(left, right) per-frame signal tracks the working arm without advance knowledge of which arm it is. Checks at the bottom frame: working arm < 80° (stricter than push-up's 100° to confirm unilateral loading) and assisting arm > 140°. `_check_pushup_top_extension` is reused at the top frame.
+
+**`one_arm_push_up.py`:**
+Imports everything from `push_up.py` and changes only the exercise name. Identical pattern to `one_arm_pull_up.py`.
+
+### What broke / what was hard
+
+Nothing broke. All four exercises mapped cleanly to existing patterns.
+
+### What I learned
+
+**Reuse by calling and renaming vs reuse by importing:**
+For straddle_planche, the geometry is completely identical to straddle_front_lever — not just "similar," but literally the same landmark positions. In this case, calling the existing analyser and mutating the exercise key in the return dict is the right pattern. It's honest: the code says "this is the same analysis, different name." The alternative (duplicating the function body) would create two copies of the same logic that could silently diverge. The "call and rename" pattern should be used when the geometry is truly identical; the "import helpers and assemble" pattern (used for one_arm_push_up) is better when the same checks are used but assembled differently.
+
+**Archer push-up checks at the bottom, not the top:**
+In the archer pull-up, form is assessed at the top of the rep (peak elbow bend for working arm, peak extension for assisting arm). In the archer push-up, the equivalent moment is the bottom (chest near floor) — that's where the working arm is deepest and the assisting arm is most extended. The top of a push-up is just a plank position; both arms are near straight regardless of archer-style form. Choosing the right frame to evaluate is as important as choosing the right threshold.
+
+**110° as the bent-arm planche threshold:**
+The threshold isn't "how bent is bent enough" — it's "how straight is too straight." The bent arm planche fails when the elbows drift toward 180° (becoming a straddle planche), not when they're a few degrees off from ideal. The < 110° check is a ceiling, not a floor. This framing makes it easier to pick a threshold that won't generate false failures.
+
+### Decisions made
+
+**Deferred: Handstand, Handstand Push-up, 90° Handstand Push-up:**
+All three require detecting that the person is inverted (wrist_y > hip_y) and knowing MediaPipe landmark reliability is lower for upside-down humans. Implementing them in a separate session keeps each session's scope tight and avoids mixing inverted detection logic with the straightforward exercises above.
+
+**Straddle Planche threshold identical to Straddle Front Lever:**
+The 25° from-horizontal threshold was calibrated for the front lever. For the planche, the floor/parallette support means the body may be slightly less horizontal in practice (shoulder depression is harder without bar support), but the 25° tolerance already accommodates this. Using the same threshold keeps the two skills consistent and avoids ad-hoc calibration.
+
+### What's next
+- Inverted exercises: Handstand, Handstand Push-up, 90° Handstand Push-up
+- Film and upload demo videos for skill nodes
+
+---
+
 ## Step 11 — Reflection
 <!-- Looking back at the whole project:
 - What are you most proud of technically?

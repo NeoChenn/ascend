@@ -59,7 +59,11 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
   - Static hold (straddle front lever): ≥3s consecutive streak where body horizontal + arms locked simultaneously; returns hold_seconds
   - Wholesale reuse (one-arm pull-up): identical to pull_up.py, exercise name only differs
   - Archer pull-up uses per-side elbow angles (not averaged) to identify working vs assisting arm
-- Push-up form analysis (angle-based, structured feedback cards)
+- Push track form analysis: Push-up, Bent Arm Planche, Archer Push-up, Straddle Planche, One-arm Push-up (partial — Handstand/HSPu/90° HSPu deferred, require inverted detection)
+  - Rep-based (archer push-up): per-side elbow tracking, min() trick for working arm, checks at bottom frame (chest near floor)
+  - Static hold (bent arm planche): body horizontal + arms bent (<110°) + 3s streak; returns hold_seconds
+  - Wholesale call (straddle planche): calls analyse_straddle_front_lever + renames exercise key — geometry identical from side camera
+  - Wholesale reuse (one-arm push-up): identical to push_up.py, exercise name only differs
 - Legs track form analysis: Squat, Bulgarian Split Squat, Pistol Squat (all with rep detection + form checks)
 - Core track form analysis: Leg Raise, Toes to Bar, L-sit, One-arm Toes to Bar (L-sit is a static hold — pass = ≥3s consecutive hold where all criteria are simultaneously met; 3 diagnostic cards + 1 hold_duration card)
 - Rep counting with smoothed signal (window=11) + de-duplicated phase events to prevent overcounting
