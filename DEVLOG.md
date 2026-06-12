@@ -1061,6 +1061,56 @@ The 25° from-horizontal threshold was calibrated for the front lever. For the p
 
 ---
 
+## Step 10f — Push track inverted exercises (Handstand, Handstand Push-up, 90° Handstand Push-up)
+*Date: June 2026*
+
+### What I built
+
+Three new analysis files and a shared infrastructure change that completes the full push track — all 8 skills are now analysable.
+
+**`pose_service.py` — `flip_vertical` parameter:**
+Added `flip_vertical: bool = False` to `extract_landmarks_from_video`. When `True`, every frame is flipped vertically with `cv2.flip(frame, 0)` immediately after `cap.read()`, before the BGR→RGB conversion and MediaPipe processing. `main.py` now defines `INVERTED_EXERCISES = {"handstand", "handstand_push_up", "handstand_push_up_90"}` and passes `flip_vertical=(exercise in INVERTED_EXERCISES)` to the function. All other exercises receive the default `False` — zero behaviour change for everything already working.
+
+**`handstand.py`:**
+Static hold streak, same architecture as `lsit.py`. Two per-frame criteria: body alignment (shoulder→hip→knee > 160°, computed inline as `_compute_body_alignment_angles`) and arm lockout (avg elbow > 155°). Per-frame values are AND-ed; the longest consecutive True streak determines `hold_seconds`. Pass: ≥90 frames (~3s). Returns `hold_seconds`. Three cards: `body_alignment`, `arm_lockout`, `hold_duration`.
+
+**`handstand_push_up.py`:**
+After the vertical flip, a handstand push-up looks exactly like a pull-up in frame: arms start extended (~170°), flex toward the floor (~90°), then extend back. `_detect_pullup_rep_phases` from `pull_up.py` maps directly — local MAX > 150° is the extended frame (lockout), local MIN < 110° is the flexed frame (head near floor). Reuses `_check_bottom_extension` (elbow > 160° at extended frame) and `_check_top_flexion` (elbow < 90° at flexed frame) unchanged. Three cards: `bottom_extension`, `top_flexion`, `body_alignment`.
+
+**`handstand_push_up_90.py`:**
+Identical to `handstand_push_up.py` plus one additional check: `_check_upper_arm_horizontal` verifies `abs(avg_shoulder_y − avg_elbow_y) < 0.05` at the flexed frame. When the upper arm is parallel to the floor, shoulder and elbow sit at the same height. Four cards: `bottom_extension`, `top_flexion`, `upper_arm_horizontal`, `body_alignment`.
+
+### What broke / what was hard
+
+Nothing broke. The vertical flip approach eliminated the need for any custom inverted coordinate logic — after the flip, all existing angle checks and rep-detection code work unchanged.
+
+### What I learned
+
+**Flipping before MediaPipe, not after:**
+The initial instinct might be to let MediaPipe run first and then remap the resulting y-coordinates (y → 1 − y). That would fail because MediaPipe's landmark confidence is lower on inverted human poses — the model was trained on upright people. By flipping the raw frame before the model sees it, we give the model its best-case input. The coordinates in the output are already in "upright space" and don't need any remapping. The key insight: fix the input, not the output.
+
+**Why abs(y_shoulder − y_elbow) is preserved under vertical flip:**
+Vertical flip maps y → (1 − y). So `y_s_new − y_e_new = (1 − y_s) − (1 − y_e) = y_e − y_s`. The sign flips but `abs(y_s_new − y_e_new) = abs(y_s − y_e)`. This means the upper-arm-horizontal check `abs(shoulder_y − elbow_y) < 0.05` works identically in both flipped and unflipped coordinates — no special handling needed.
+
+**The 90° in "90° Handstand Push-up" is not the elbow angle:**
+It refers to the upper arm angle from vertical — when the upper arm is horizontal (90° from vertical), the elbows are level with the shoulders. This is the hardest standard range of motion for the movement. The elbow angle at that point is actually around 90° too, but that's a coincidence — the defining criterion is upper arm position, not elbow angle.
+
+### Decisions made
+
+**`INVERTED_EXERCISES` as a set in `main.py`, not a flag on each analyser:**
+The flip is a pre-processing step that happens in `pose_service.py` before any analysis code runs. The analyser functions themselves have no way to request a flip — they only receive the already-processed `landmarks_per_frame`. A set in `main.py` keeps the flip logic centralised: one place to add new inverted exercises, one place to see which exercises need it.
+
+**Inline `_compute_body_alignment_angles` in `handstand.py` (not exported from `_shared.py`):**
+The function computes shoulder→hip→knee angles per frame — the same joints used by `_check_body_alignment` in `_shared.py`. I didn't add it to `_shared.py` because it only exists to feed the streak loop in `handstand.py`. If a second static-hold exercise needed per-frame body angles, I'd promote it. Premature export creates API surface for no benefit.
+
+**Reused `_check_bottom_extension` and `_check_top_flexion` despite the naming mismatch:**
+Those functions are named for pull-up context ("bottom" = hanging, "top" = chin over bar). In HSPu context, "bottom" maps to the extended/lockout position and "top" maps to the head-near-floor position — inverted semantics. But the check implementations only care about threshold comparisons, not names. Reusing them is correct; the naming mismatch is documented in both analyser docstrings.
+
+### What's next
+- Film and upload demo videos for skill nodes
+
+---
+
 ## Step 11 — Reflection
 <!-- Looking back at the whole project:
 - What are you most proud of technically?

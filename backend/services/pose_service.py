@@ -40,7 +40,7 @@ def _ensure_model() -> None:
         print("Model downloaded.")
 
 
-def extract_landmarks_from_video(video_bytes: bytes) -> dict:
+def extract_landmarks_from_video(video_bytes: bytes, flip_vertical: bool = False) -> dict:
     """
     Runs MediaPipe Pose on every frame of the provided video.
 
@@ -98,6 +98,12 @@ def extract_landmarks_from_video(video_bytes: bytes) -> dict:
 
                 timestamp_ms = int((frame_index / fps) * 1000)
                 frame_index += 1
+
+                # For inverted exercises (handstand, HSPu), the video is filmed
+                # normally but the person is upside-down. Flipping before MediaPipe
+                # means the model sees an upright human, improving landmark quality.
+                if flip_vertical:
+                    frame = cv2.flip(frame, 0)
 
                 # OpenCV reads frames as BGR; MediaPipe expects RGB.
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)

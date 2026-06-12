@@ -9,6 +9,9 @@ from services.analysis import (
     analyse_bent_arm_planche,
     analyse_bulgarian_split_squat,
     analyse_explosive_pull_up,
+    analyse_handstand,
+    analyse_handstand_push_up,
+    analyse_handstand_push_up_90,
     analyse_leg_raise,
     analyse_lsit,
     analyse_muscle_up,
@@ -26,6 +29,11 @@ from services.analysis import (
 from services.llm_service import generate_narrative_feedback
 from services.pose_service import extract_landmarks_from_video
 
+# Exercises filmed with the person inverted (handstand position).
+# pose_service.py flips these videos vertically before MediaPipe so the model
+# sees an upright human, improving landmark detection on inverted poses.
+INVERTED_EXERCISES = {"handstand", "handstand_push_up", "handstand_push_up_90"}
+
 # Maps the exercise value sent by the frontend to the correct analyser function.
 # Add new exercises here as they are implemented — no other code needs to change.
 ANALYSERS = {
@@ -36,6 +44,9 @@ ANALYSERS = {
     "straddle_front_lever": analyse_straddle_front_lever,
     "one_arm_pull_up": analyse_one_arm_pull_up,
     "push_up": analyse_push_up,
+    "handstand": analyse_handstand,
+    "handstand_push_up": analyse_handstand_push_up,
+    "handstand_push_up_90": analyse_handstand_push_up_90,
     "bent_arm_planche": analyse_bent_arm_planche,
     "straddle_planche": analyse_straddle_planche,
     "archer_push_up": analyse_archer_push_up,
@@ -80,7 +91,10 @@ async def upload(file: UploadFile = File(...), exercise: str = Form(...)):
     print(f"Received file: {file.filename} (exercise: {exercise})")
 
     video_bytes = await file.read()
-    pose_data = extract_landmarks_from_video(video_bytes)
+    pose_data = extract_landmarks_from_video(
+        video_bytes,
+        flip_vertical=(exercise in INVERTED_EXERCISES),
+    )
 
     analyser = ANALYSERS.get(exercise)
     if analyser:

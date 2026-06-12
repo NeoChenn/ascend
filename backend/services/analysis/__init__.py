@@ -1,4 +1,7 @@
 from services.analysis.archer_pull_up import analyse_archer_pull_up
+from services.analysis.handstand import analyse_handstand
+from services.analysis.handstand_push_up import analyse_handstand_push_up
+from services.analysis.handstand_push_up_90 import analyse_handstand_push_up_90
 from services.analysis.archer_push_up import analyse_archer_push_up
 from services.analysis.bent_arm_planche import analyse_bent_arm_planche
 from services.analysis.bulgarian_split_squat import analyse_bulgarian_split_squat
@@ -18,6 +21,9 @@ from services.analysis.straddle_planche import analyse_straddle_planche
 from services.analysis.toes_to_bar import analyse_toes_to_bar
 
 __all__ = [
+    "analyse_handstand",
+    "analyse_handstand_push_up",
+    "analyse_handstand_push_up_90",
     "analyse_pull_up",
     "analyse_explosive_pull_up",
     "analyse_muscle_up",
