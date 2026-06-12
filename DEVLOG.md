@@ -775,7 +775,7 @@ Unlike server-side env vars which are read when the process starts, Vite inlines
 
 ---
 
-## Step 9c — Legs track form analysis (Squat, Bulgarian Split Squat, Pistol Squat)
+## Step 10a — Legs track form analysis (Squat, Bulgarian Split Squat, Pistol Squat)
 *Date: June 2026*
 
 ### What I built
@@ -831,7 +831,7 @@ Initially I considered measuring the rear knee angle in a BSS. But this is unrel
 
 ---
 
-## Step 9d — Core track form analysis (Leg Raise, Toes to Bar, L-sit, One-arm Toes to Bar)
+## Step 10b — Core track form analysis (Leg Raise, Toes to Bar, L-sit, One-arm Toes to Bar)
 *Date: June 2026*
 
 ### What I built
@@ -839,7 +839,7 @@ Initially I considered measuring the rear knee angle in a BSS. But this is unrel
 Four new analysis files for the core track, plus two new shared utilities.
 
 **Shared utilities added to `_shared.py`:**
-- `_compute_hip_angles()` — the primary signal for all core exercises. Computes the shoulder-hip-ankle angle per frame, averaged across both sides. At hanging rest this is ~180° (body straight); at horizontal it's ~90°; at a full toes-to-bar pike it's <45°. One function covers all three rep-based exercises (see Step 9c for how `_compute_knee_angles` was the equivalent for legs).
+- `_compute_hip_angles()` — the primary signal for all core exercises. Computes the shoulder-hip-ankle angle per frame, averaged across both sides. At hanging rest this is ~180° (body straight); at horizontal it's ~90°; at a full toes-to-bar pike it's <45°. One function covers all three rep-based exercises (see Step 10a for how `_compute_knee_angles` was the equivalent for legs).
 - `_check_leg_straightness()` — checks that the knee angle is > 150° at the top of the movement. Shared between `leg_raise.py` and `toes_to_bar.py` to avoid duplication.
 
 **`leg_raise.py`:** Rep detection using `_compute_hip_angles` (local MAX = hanging, local MIN < 110° = legs at horizontal). Three checks: height reached, leg straightness, no swinging.
@@ -871,7 +871,7 @@ The `_check_no_swing` function monitors hip y-position rather than shoulder y-po
 From a side camera, a one-arm toes to bar and a two-arm toes to bar are geometrically identical — the hip angle, the height reached, and the leg straightness are the same checks. Whether one or two hands are on the bar is not detectable via pose landmarks from the side. The decision: reuse all existing logic and rely on the user filming with the gripping hand clearly visible. This is an intentional "trust the user" tradeoff — the analysis confirms the form quality, not the specific grip variation. An alternative would be a front-facing camera to see both arms, but this would break every other check that requires a side view.
 
 **Prerequisite chain determines implementation order:**
-The order was: Leg Raise (entry point) → Toes to Bar and L-sit (both require Leg Raise) → One-arm Toes to Bar (requires Toes to Bar). This is the same bottom-up principle from Step 9c: implementing One-arm Toes to Bar before Toes to Bar would create dead code, since the skill can never be reached.
+The order was: Leg Raise (entry point) → Toes to Bar and L-sit (both require Leg Raise) → One-arm Toes to Bar (requires Toes to Bar). This is the same bottom-up principle from Step 10a: implementing One-arm Toes to Bar before Toes to Bar would create dead code, since the skill can never be reached.
 
 **`_check_leg_straightness` in `_shared.py`, not duplicated:**
 Both `leg_raise.py` and `toes_to_bar.py` need the same knee-extension check at the top of the movement. Since it's used in two files and has no exercise-specific logic, it belongs in `_shared.py`. This is different from `_identify_working_leg` in the legs track (kept local) — that function had exercise-specific semantics. A check that simply asks "are the knees straight?" is genuinely general.
@@ -882,7 +882,7 @@ Both `leg_raise.py` and `toes_to_bar.py` need the same knee-extension check at t
 
 ---
 
-## Step 9e — Analysis accuracy fixes (L-sit hold duration + first-rep evaluation)
+## Step 10c — Analysis accuracy fixes (L-sit hold duration + first-rep evaluation)
 *Date: June 2026*
 
 ### What I built
@@ -951,25 +951,7 @@ Updating the instructions to say "one clean rep, no setup or rest" is the user-f
 
 ---
 
-## Step 10 — Buffer + stretch goals
-*Date: Early September 2026*
-
-### What I built
-<!-- Fill this in -->
-
-### Stretch goals attempted
-<!-- Fill in what you actually attempted -->
-
-Planned stretch goals (attempt if time allows):
-- **LLM narrative feedback** — use the Claude API to turn the structured pass/fail checks into a short paragraph of natural language coaching, e.g. "Your bottom position is solid but you're not quite locking out at the top — focus on driving your elbows down at the peak of each rep." More human than a list of pass/fail cards.
-- **More exercises** — extend form analysis to squat (for the legs track) and L-sit / toes-to-bar (for the core track). Each needs its own set of landmark-based checks.
-- **UI polish — game feel**
-  - Skill nodes as shaped cards or hexagons rather than plain rectangles
-  - Skill illustration or icon on each node instead of (or alongside) the text name
-  - Unlock animation — particle effect or colour burst when a skill is unlocked
-  - Smoother transitions between locked/unlockable/unlocked states
-
-### Reflection
+## Step 11 — Reflection
 <!-- Looking back at the whole project:
 - What are you most proud of technically?
 - What would you do differently?
