@@ -882,6 +882,75 @@ Both `leg_raise.py` and `toes_to_bar.py` need the same knee-extension check at t
 
 ---
 
+## Step 9e — Analysis accuracy fixes (L-sit hold duration + first-rep evaluation)
+*Date: June 2026*
+
+### What I built
+
+Two correctness fixes to the form analysis system, plus a Supabase update and a small frontend change.
+
+**L-sit: minimum consecutive hold duration**
+
+The original `analyse_lsit` averaged all three metrics (hip angle, knee angle, elbow angle) across every frame in the video. This had a flaw: a user who briefly dipped into the position and then rested — or who was setting up for 2 seconds before a 1-second hold — could pass on the average even without a genuine hold.
+
+Replaced averaging with a **consecutive-frame streak**: each frame is evaluated as a boolean (all three criteria met simultaneously?), then the longest unbroken run of True frames is found. If that streak is ≥ 90 frames (~3 seconds at 30 fps), the skill passes.
+
+The three existing diagnostic cards (hip angle, leg extension, arm lockout) are kept unchanged — they still average across all frames and tell the user which individual criterion is failing. A fourth `hold_duration` card is added as the actual gate. The return dict includes a `hold_seconds` field so the frontend can display "3.3s held" instead of "0 reps detected."
+
+**Dynamic analysers: first rep only**
+
+All 8 dynamic analysers (pull-up, push-up, squat, BSS, pistol, leg raise, toes-to-bar, one-arm toes-to-bar) previously built `bottom_frames = [r[0] for r in reps]` — averaging checks over every detected rep. If a user filmed 3 reps and the third was notably worse, the average could fail them even if rep 1 was clean. Since the app is about demonstrating a skill (1 rep with good form is enough), this was wrong.
+
+Fixed by evaluating only `reps[0]`:
+```python
+first_rep = reps[0]
+bottom_frames = [first_rep[0]]
+top_frames = [first_rep[1]]
+```
+
+The same 2-line change in each of the 8 files. `rep_count` is unaffected — it still counts all detected reps for display.
+
+**Supabase filming instructions + frontend display**
+
+Updated `filming_instructions` for all skills via SQL: dynamic skills now say "trim to just the rep, film one clean attempt"; L-sit says "trim to just your hold." This aligns the user instruction with the app's philosophy (skill demonstration, not rep counting) and with how the backend now evaluates the video.
+
+`SkillModal.jsx` now reads `data.feedback.hold_seconds` from the response. If the field is present, it displays "Xs held" in place of the rep count label. For all non-static exercises, `hold_seconds` is absent and the existing "N reps detected" display is unchanged.
+
+### What broke / what was hard
+
+Nothing broke functionally — all imports passed and the synthetic test confirmed the streak logic worked correctly on first attempt.
+
+### What I learned
+
+**Averaging vs streak for static holds:**
+Averaging across all frames is the right approach when every frame should look roughly the same (a static hold). The flaw was that "all frames" included frames where the person hadn't yet assumed the position. The streak approach doesn't require trimming the video perfectly — it just finds the longest valid window and ignores everything else. If the streak is 3 seconds, the user held for 3 seconds regardless of what happened before or after.
+
+**AND-ing per-frame criteria before the streak is essential:**
+If you run three separate streaks (one per metric) instead of one combined streak, you could pass a user whose hip angle was correct for 5 seconds but whose knees were bent the whole time. The AND ensures all three criteria are simultaneously correct — not three independent minimums. The `zip()` comprehension `[h < 100 and k > 155 and e > 155 for h, k, e in zip(hip, knee, elbow)]` is the concise way to express this.
+
+**Multi-rep averaging creates unfair failures:**
+Averaging across all detected reps seems reasonable — you'd want consistent form throughout. But in practice, users who film 2–3 reps will often have a noticeably worse final rep due to fatigue. "1 clean rep = pass" is the right semantic for a skills app (not a conditioning tracker), so the analysis should reflect that.
+
+**`hold_seconds ?? null` as a per-exercise field discriminator:**
+`hold_seconds` is only present in L-sit feedback. The frontend uses `?? null` coalescing to store it as null for all other exercises. A single ternary in JSX then handles both display cases — no exercise-type awareness needed anywhere else in the component.
+
+### Decisions made
+
+**3 diagnostic cards retained alongside hold_duration:**
+A single "hold_duration" card would tell the user whether they passed but not why they failed. Keeping the hip/knee/elbow cards means a user who held for 1.2 seconds sees exactly which metric dropped — "your knees were bending throughout the hold" — giving them something to fix.
+
+**First rep (not best rep):**
+"Best rep" (the rep with the most extreme bottom position) would be the most lenient option. "First rep" is simpler to implement, has a clear justification (freshest effort, unaffected by fatigue), and pairs naturally with the filming instruction to film one clean attempt. For a portfolio project, simplicity and explainability win over marginal leniency.
+
+**Filming instruction as the primary guardrail:**
+Updating the instructions to say "one clean rep, no setup or rest" is the user-facing complement to the first-rep-only code change. The code handles the case where a user films a little extra anyway; the instruction sets the right expectation so they don't have to think about it.
+
+### What's next
+- Remaining push/pull track exercises (Explosive Pull-up, Muscle-up, Archer Push-up, etc.)
+- Film and upload demo videos for skill nodes
+
+---
+
 ## Step 10 — Buffer + stretch goals
 *Date: Early September 2026*
 

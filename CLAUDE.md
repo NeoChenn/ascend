@@ -55,8 +55,11 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
 - Video upload + MediaPipe pose extraction
 - Pull-up and push-up form analysis (angle-based, structured feedback cards)
 - Legs track form analysis: Squat, Bulgarian Split Squat, Pistol Squat (all with rep detection + form checks)
-- Core track form analysis: Leg Raise, Toes to Bar, L-sit, One-arm Toes to Bar (L-sit is a static hold — no rep detection, full-video average)
+- Core track form analysis: Leg Raise, Toes to Bar, L-sit, One-arm Toes to Bar (L-sit is a static hold — pass = ≥3s consecutive hold where all criteria are simultaneously met; 3 diagnostic cards + 1 hold_duration card)
 - Rep counting with smoothed signal (window=11) + de-duplicated phase events to prevent overcounting
+- All dynamic analysers evaluate form on the first detected rep only — prevents multi-rep averaging from failing a user who had a clean first rep
+- Filming instructions updated in Supabase: dynamic skills say "film one clean rep, trim to just that rep"; L-sit says "trim to just your hold"
+- SkillModal displays hold duration ("Xs held") instead of rep count for static holds
 - Supabase: schema (4 tables), RLS policies, storage buckets (demo-videos, unlock-videos)
 - Auth: login, signup, session persistence via AuthContext
 - Muscle map landing page (interactive SVG at /skill-tree, now labelled "Skill Trees")
