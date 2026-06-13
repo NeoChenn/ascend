@@ -1111,7 +1111,46 @@ Those functions are named for pull-up context ("bottom" = hanging, "top" = chin 
 
 ---
 
-## Step 11 — Reflection
+## Step 11 — UX: collapsible general filming tips
+*Date: June 2026*
+
+### What I built
+
+A collapsible "General filming tips" section in `SkillModal.jsx`, displayed above the exercise-specific filming instructions whenever `skillState !== 'locked'`.
+
+The section covers four things that affect MediaPipe detection quality regardless of exercise:
+- **Background** — plain wall or simple outdoor setting; busy backgrounds can confuse pose detection
+- **Lighting** — even, shadow-free light; MediaPipe detects landmarks more reliably with good contrast between the person and the background
+- **Clothes** — form-fitting and contrasting with the background; baggy clothing obscures elbow, knee, and hip positions
+- **Camera** — tripod or stable surface; camera shake introduces noise into joint tracking and can trigger false positives in movement detection
+
+The section is collapsed by default (a single `filmingTipsOpen` boolean state initialised to `false`) and toggled by clicking the header button. A chevron rotates 180° via CSS transition when the section opens. The tips list only renders when the state is `true` — no animation beyond the chevron, intentionally minimal.
+
+### What I learned
+
+**`<button>` for disclosures, not `<div onClick>`:**
+A `<div>` with an `onClick` is not keyboard navigable or announced by screen readers as interactive. A `<button>` is keyboard accessible (tab-stops, Enter/Space to activate) and announced as "button" by assistive technology out of the box — no extra attributes needed. The `aria-expanded` attribute then tells screen readers whether the controlled content is currently open or closed. This is the standard ARIA disclosure pattern and costs nothing to implement correctly.
+
+**CSS Modules and the two-class chevron pattern:**
+The chevron rotation uses two separate CSS classes (`.chevron` and `.chevronOpen`) rather than an inline style. Both classes share `transition: transform 0.2s ease`; `.chevronOpen` adds `transform: rotate(180deg)`. Switching between classes in JSX (`filmingTipsOpen ? styles.chevronOpen : styles.chevron`) means the transition runs automatically — React just swaps the class, CSS handles the animation. This keeps animation logic entirely in the stylesheet, not in JavaScript.
+
+**Why filming conditions matter as much as form:**
+MediaPipe's landmark confidence drops significantly in low-light, high-clutter, or low-contrast conditions — not because the person's form has changed, but because the model can't reliably locate joints. A user who films in good conditions but executes slightly imperfect form will often get more consistent and accurate feedback than a user with perfect form but filmed against a busy background or in dim lighting. These tips are not just practical advice — they directly affect whether the form analysis returns meaningful results.
+
+### Decisions made
+
+**Collapsible in the modal, not a navbar link or separate page:**
+The key constraint is *when* a user needs this information: immediately before uploading. A navbar link or separate page would require the user to navigate away, read it, navigate back, and remember it. Placing the section in the modal means it's visible at the exact moment it's relevant. Collapsed by default means users who already know this aren't forced to read it, and the more important exercise-specific instructions (which are exercise-specific and change each time) remain the first thing they see.
+
+**Collapsed by default:**
+An expanded default would push the exercise-specific filming instructions and upload button below the fold on smaller screens, increasing the number of scrolls before the user can act. The most important thing in the modal is "what to film and how to upload for this specific skill" — the general tips are useful but subordinate. Collapse-by-default respects that hierarchy.
+
+**General tips in JSX, not in Supabase:**
+The exercise-specific filming instructions live in Supabase because they vary per skill. The general tips are the same for every exercise — there is no scenario where the lighting advice changes for a handstand vs a squat. Putting them in the component directly avoids a database query for content that will never change.
+
+---
+
+## Step 12 — Reflection
 <!-- Looking back at the whole project:
 - What are you most proud of technically?
 - What would you do differently?
