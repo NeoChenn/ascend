@@ -79,6 +79,55 @@
   line-height: 1.6;
 }
 
+/* ── Collapsible filming tips ── */
+
+.tipsToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #666;
+  text-align: left;
+}
+
+.tipsToggle:hover {
+  color: #a0a0a0;
+}
+
+.chevron {
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+.chevronOpen {
+  display: inline-block;
+  transition: transform 0.2s ease;
+  transform: rotate(180deg);
+}
+
+.tipsList {
+  margin: 0.75rem 0 0 0;
+  padding: 0 0 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  color: #c0c0c0;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.tipsList li strong {
+  color: #e0e0e0;
+}
+
 .authBanner {
   background: rgba(245, 158, 11, 0.1);
   border: 1px solid rgba(245, 158, 11, 0.35);

@@ -63,6 +63,7 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
   const [uploadState, setUploadState] = useState('idle')  // 'idle' | 'uploading' | 'result' | 'error'
   const [result, setResult] = useState(null)              // { passed, checks, repCount, landmarks }
   const [videoPreviewUrl, setVideoPreviewUrl] = useState(null)
+  const [filmingTipsOpen, setFilmingTipsOpen] = useState(false)
 
   const fileInputRef = useRef(null)
   const videoRef     = useRef(null)
@@ -300,7 +301,29 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
               </div>
             )}
 
-            {/* Filming instructions only shown when the user can actually attempt */}
+            {/* General filming tips — collapsible, shown when the user can actually attempt */}
+            {skillState !== 'locked' && (
+              <div className={styles.section}>
+                <button
+                  className={styles.tipsToggle}
+                  onClick={() => setFilmingTipsOpen(open => !open)}
+                  aria-expanded={filmingTipsOpen}
+                >
+                  <span>General filming tips</span>
+                  <span className={filmingTipsOpen ? styles.chevronOpen : styles.chevron}>▾</span>
+                </button>
+                {filmingTipsOpen && (
+                  <ul className={styles.tipsList}>
+                    <li><strong>Background:</strong> Plain wall or simple outdoor setting. Busy backgrounds can confuse MediaPipe's pose detection.</li>
+                    <li><strong>Lighting:</strong> Even, shadow-free light — daylight or a well-lit room. MediaPipe detects landmarks more reliably with good contrast between you and the background.</li>
+                    <li><strong>Clothes:</strong> Form-fitting and contrasting with the background. Baggy clothing obscures elbows, knees, and hips. Avoid all-black on a dark background or all-white on a light one.</li>
+                    <li><strong>Camera:</strong> Tripod or stable surface. Camera shake can introduce noise into joint tracking and trigger false positives in movement detection.</li>
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {/* Exercise-specific filming instructions only shown when the user can actually attempt */}
             {skillState !== 'locked' && (
               <div className={styles.section}>
                 <h3 className={styles.sectionTitle}>Filming instructions</h3>
