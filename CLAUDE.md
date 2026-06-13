@@ -79,7 +79,7 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
 - Muscle map landing page (interactive SVG at /skill-tree, now labelled "Skill Trees")
 - Track pages at /track/:trackId — column-based skill tree with real Supabase data, locked/unlockable/unlocked states, H-branch SVG connectors
 - SkillNode component (3 visual states, per-skill SVG stick-figure icons, box-shadow glow on unlocked)
-- SkillModal (skill info, filming instructions, autoplay video previews, upload button)
+- SkillModal (skill info, collapsible general filming tips, exercise-specific filming instructions, autoplay video previews, upload button)
 - Full upload flow: file picker → uploading state with video preview → MediaPipe skeleton overlay on result → pass/fail verdict → feedback cards
 - Supabase writes on attempt: skill_attempts (always), user_skills + Storage upload (on pass)
 - Skill node flips to unlocked immediately after pass (local state + persisted to DB)
@@ -110,7 +110,7 @@ calisthenics-coach/
 │   │   │   ├── Navbar.jsx
 │   │   │   ├── SkillNode.jsx              # skill card: locked / unlockable / unlocked states
 │   │   │   ├── SkillIcons.jsx             # 21 SVG stick-figure icons (one per skill), all using currentColor
-│   │   │   └── SkillModal.jsx             # modal: skill info + filming instructions + upload button
+│   │   │   └── SkillModal.jsx             # modal: skill info + collapsible general filming tips + exercise-specific filming instructions + upload button
 │   │   ├── App.jsx                    # routes: /, /skill-tree, /track/:trackId, /login, /signup
 │   │   └── supabaseClient.js          # single shared Supabase client
 ├── backend/
