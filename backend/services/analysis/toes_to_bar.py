@@ -93,8 +93,17 @@ def _check_tob_height(
             continue
         frame = landmarks_per_frame[idx]
 
-        avg_ankle_y = (frame["left_ankle"]["y"] + frame["right_ankle"]["y"]) / 2
-        avg_wrist_y = (frame["left_wrist"]["y"] + frame["right_wrist"]["y"]) / 2
+        # Use only visible side(s) — from side-on, the far ankle may be inaccurate.
+        ankle_ys = [
+            frame[k]["y"] for k in ["left_ankle", "right_ankle"]
+            if frame[k]["visibility"] >= 0.5
+        ] or [(frame["left_ankle"]["y"] + frame["right_ankle"]["y"]) / 2]
+        wrist_ys = [
+            frame[k]["y"] for k in ["left_wrist", "right_wrist"]
+            if frame[k]["visibility"] >= 0.5
+        ] or [(frame["left_wrist"]["y"] + frame["right_wrist"]["y"]) / 2]
+        avg_ankle_y = sum(ankle_ys) / len(ankle_ys)
+        avg_wrist_y = sum(wrist_ys) / len(wrist_ys)
 
         # Negative gap means ankles are above wrists (toes reached or passed the bar)
         gaps.append(avg_ankle_y - avg_wrist_y)

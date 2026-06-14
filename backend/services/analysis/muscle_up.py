@@ -68,8 +68,20 @@ def analyse_muscle_up(
     lockout_found = False
 
     for i, frame in enumerate(landmarks_per_frame):
-        avg_hip_y   = (frame["left_hip"]["y"]   + frame["right_hip"]["y"])   / 2
-        avg_wrist_y = (frame["left_wrist"]["y"] + frame["right_wrist"]["y"]) / 2
+        # Use only the visible side(s) for both hip and wrist y-values.
+        # From side-on, the far hand/hip may have a less accurate y estimate.
+        hip_ys = [
+            frame[k]["y"] for k in ["left_hip", "right_hip"]
+            if frame[k]["visibility"] >= 0.5
+        ] or [(frame["left_hip"]["y"] + frame["right_hip"]["y"]) / 2]
+
+        wrist_ys = [
+            frame[k]["y"] for k in ["left_wrist", "right_wrist"]
+            if frame[k]["visibility"] >= 0.5
+        ] or [(frame["left_wrist"]["y"] + frame["right_wrist"]["y"]) / 2]
+
+        avg_hip_y   = sum(hip_ys) / len(hip_ys)
+        avg_wrist_y = sum(wrist_ys) / len(wrist_ys)
 
         if elbow_angles[i] > 150 and avg_hip_y < avg_wrist_y:
             lockout_found = True

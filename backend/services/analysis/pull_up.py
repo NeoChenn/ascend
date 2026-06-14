@@ -154,7 +154,9 @@ def _check_kipping(
     consecutive frames. In MediaPipe's coordinate system, y decreases as you
     move up, so a sudden decrease in shoulder y indicates a fast upward jerk.
 
-    A frame-to-frame change > 0.03 (roughly 22px in 720p) suggests kipping.
+    We smooth the signal with a 3-frame window first to suppress single-frame
+    MediaPipe jitter that could otherwise trigger a false kipping flag on a
+    clean, controlled pull-up. Threshold raised to 0.05 for the same reason.
     """
     shoulder_y_values: list[float] = []
 
@@ -170,11 +172,12 @@ def _check_kipping(
             "measurement": None,
         }
 
+    smoothed = _smooth_signal(shoulder_y_values, window=3)
     max_delta = max(
-        abs(shoulder_y_values[i] - shoulder_y_values[i - 1])
-        for i in range(1, len(shoulder_y_values))
+        abs(smoothed[i] - smoothed[i - 1])
+        for i in range(1, len(smoothed))
     )
-    passed = max_delta < 0.03
+    passed = max_delta < 0.05
 
     if passed:
         message = "No kipping detected — movement looks controlled."

@@ -58,21 +58,31 @@ def _compute_elbow_angles(
     landmarks_per_frame: list[dict[str, dict[str, float]]],
 ) -> list[float]:
     """
-    Compute the average left+right elbow angle for every frame.
+    Compute the elbow angle (shoulder-elbow-wrist) for every frame.
 
-    We average both sides because the camera may be side-on (one arm hidden)
-    or front-facing (both visible). Averaging keeps the signal reasonable
-    in either case, since MediaPipe often mirrors occluded joints.
+    Uses only the side(s) where all three joints have visibility ≥ 0.5.
+    From a side-on camera the far arm is mirrored by MediaPipe with lower
+    accuracy; averaging it in would contaminate the signal. If both sides are
+    reliable, they're averaged. If only one is, that side is used alone.
+    If neither is reliable, the raw average is used as a fallback to avoid
+    a gap in the signal.
     """
     angles: list[float] = []
     for frame in landmarks_per_frame:
-        left_angle = calculate_angle(
-            frame["left_shoulder"], frame["left_elbow"], frame["left_wrist"]
-        )
-        right_angle = calculate_angle(
-            frame["right_shoulder"], frame["right_elbow"], frame["right_wrist"]
-        )
-        angles.append((left_angle + right_angle) / 2)
+        left_vis = all(frame[j]["visibility"] >= 0.5 for j in ["left_shoulder", "left_elbow", "left_wrist"])
+        right_vis = all(frame[j]["visibility"] >= 0.5 for j in ["right_shoulder", "right_elbow", "right_wrist"])
+
+        left_angle = calculate_angle(frame["left_shoulder"], frame["left_elbow"], frame["left_wrist"])
+        right_angle = calculate_angle(frame["right_shoulder"], frame["right_elbow"], frame["right_wrist"])
+
+        if left_vis and right_vis:
+            angles.append((left_angle + right_angle) / 2)
+        elif left_vis:
+            angles.append(left_angle)
+        elif right_vis:
+            angles.append(right_angle)
+        else:
+            angles.append((left_angle + right_angle) / 2)  # fallback
     return angles
 
 
@@ -148,10 +158,12 @@ def _compute_knee_angles(
     landmarks_per_frame: list[dict[str, dict[str, float]]],
 ) -> list[float]:
     """
-    Compute the average left+right knee angle (hip-knee-ankle) for every frame.
+    Compute the knee angle (hip-knee-ankle) for every frame.
 
-    Averaging both sides handles side-on cameras where one leg may be occluded;
-    MediaPipe mirrors joints so both sides produce a reasonable signal.
+    Uses only the side(s) where all three joints have visibility ≥ 0.5.
+    From a side-on camera the far leg is mirrored by MediaPipe with lower
+    accuracy; averaging it in would contaminate the signal. Falls back to
+    the raw average only when neither side clears the threshold.
 
     Landmark indices used (MediaPipe):
       Left:  hip (23) → knee (25) → ankle (27)
@@ -159,13 +171,20 @@ def _compute_knee_angles(
     """
     angles: list[float] = []
     for frame in landmarks_per_frame:
-        left_angle = calculate_angle(
-            frame["left_hip"], frame["left_knee"], frame["left_ankle"]
-        )
-        right_angle = calculate_angle(
-            frame["right_hip"], frame["right_knee"], frame["right_ankle"]
-        )
-        angles.append((left_angle + right_angle) / 2)
+        left_vis = all(frame[j]["visibility"] >= 0.5 for j in ["left_hip", "left_knee", "left_ankle"])
+        right_vis = all(frame[j]["visibility"] >= 0.5 for j in ["right_hip", "right_knee", "right_ankle"])
+
+        left_angle = calculate_angle(frame["left_hip"], frame["left_knee"], frame["left_ankle"])
+        right_angle = calculate_angle(frame["right_hip"], frame["right_knee"], frame["right_ankle"])
+
+        if left_vis and right_vis:
+            angles.append((left_angle + right_angle) / 2)
+        elif left_vis:
+            angles.append(left_angle)
+        elif right_vis:
+            angles.append(right_angle)
+        else:
+            angles.append((left_angle + right_angle) / 2)  # fallback
     return angles
 
 
@@ -247,10 +266,14 @@ def _compute_hip_angles(
     landmarks_per_frame: list[dict[str, dict[str, float]]],
 ) -> list[float]:
     """
-    Compute the average left+right hip flexion angle (shoulder-hip-ankle) per frame.
+    Compute the hip flexion angle (shoulder-hip-ankle) per frame.
 
     This measures how much the legs are raised relative to the torso — the primary
     signal for all hanging core exercises (leg raise, toes to bar, L-sit).
+
+    Uses only the side(s) where all three joints have visibility ≥ 0.5.
+    From a side-on camera the far hip/ankle are mirrored by MediaPipe with
+    lower accuracy; averaging them in would contaminate the signal.
 
     Landmark indices used (MediaPipe):
       Left:  shoulder (11) → hip (23) → ankle (27)
@@ -263,13 +286,20 @@ def _compute_hip_angles(
     """
     angles: list[float] = []
     for frame in landmarks_per_frame:
-        left_angle = calculate_angle(
-            frame["left_shoulder"], frame["left_hip"], frame["left_ankle"]
-        )
-        right_angle = calculate_angle(
-            frame["right_shoulder"], frame["right_hip"], frame["right_ankle"]
-        )
-        angles.append((left_angle + right_angle) / 2)
+        left_vis = all(frame[j]["visibility"] >= 0.5 for j in ["left_shoulder", "left_hip", "left_ankle"])
+        right_vis = all(frame[j]["visibility"] >= 0.5 for j in ["right_shoulder", "right_hip", "right_ankle"])
+
+        left_angle = calculate_angle(frame["left_shoulder"], frame["left_hip"], frame["left_ankle"])
+        right_angle = calculate_angle(frame["right_shoulder"], frame["right_hip"], frame["right_ankle"])
+
+        if left_vis and right_vis:
+            angles.append((left_angle + right_angle) / 2)
+        elif left_vis:
+            angles.append(left_angle)
+        elif right_vis:
+            angles.append(right_angle)
+        else:
+            angles.append((left_angle + right_angle) / 2)  # fallback
     return angles
 
 

@@ -129,11 +129,14 @@ def _check_no_swing(
             "measurement": None,
         }
 
+    # Smooth before delta to suppress single-frame MediaPipe jitter.
+    # Threshold raised to 0.05 — 0.03 was too strict for controlled movement.
+    smoothed = _smooth_signal(hip_y_values, window=3)
     max_delta = max(
-        abs(hip_y_values[i] - hip_y_values[i - 1])
-        for i in range(1, len(hip_y_values))
+        abs(smoothed[i] - smoothed[i - 1])
+        for i in range(1, len(smoothed))
     )
-    passed = max_delta < 0.03
+    passed = max_delta < 0.05
 
     if passed:
         message = "No excessive swinging detected — movement looks controlled."
