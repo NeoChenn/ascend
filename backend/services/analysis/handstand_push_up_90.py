@@ -1,8 +1,8 @@
 from services.analysis._shared import _check_body_alignment
-from services.analysis.pull_up import (
-    _check_bottom_extension,
-    _check_top_flexion,
-    _detect_pullup_rep_phases,
+from services.analysis.handstand_push_up import (
+    _check_hsp_lockout,
+    _check_hsp_depth,
+    _detect_hsp_rep_phases,
 )
 
 
@@ -128,7 +128,7 @@ def analyse_handstand_push_up_90(
             ],
         }
 
-    phase_data = _detect_pullup_rep_phases(landmarks_per_frame)
+    phase_data = _detect_hsp_rep_phases(landmarks_per_frame)
     reps: list[tuple[int, int]] = phase_data["reps"]
     elbow_angles: list[float] = phase_data["elbow_angles"]
 
@@ -139,8 +139,8 @@ def analyse_handstand_push_up_90(
     genuine_reps = len(reps) if reps != [(0, len(landmarks_per_frame) - 1)] else 0
 
     checks = [
-        _check_bottom_extension(elbow_angles, extended_frames),
-        _check_top_flexion(elbow_angles, flexed_frames),
+        _check_hsp_lockout(elbow_angles, extended_frames),
+        _check_hsp_depth(elbow_angles, flexed_frames),
         _check_upper_arm_horizontal(landmarks_per_frame, flexed_frames),
         _check_body_alignment(landmarks_per_frame),
     ]

@@ -115,10 +115,10 @@ def analyse_handstand(
     body_angles = _compute_body_alignment_angles(landmarks_per_frame)
 
     # Per-frame: both criteria must pass simultaneously.
-    # body > 160° = shoulder-hip-knee in a straight line (no pike or arch).
+    # body > 155° = shoulder-hip-knee acceptably straight (allows slight natural arch).
     # elbow > 155° = arms locked out.
     per_frame_pass = [
-        body > 160 and elbow > 155
+        body > 155 and elbow > 155
         for body, elbow in zip(body_angles, elbow_angles)
     ]
 

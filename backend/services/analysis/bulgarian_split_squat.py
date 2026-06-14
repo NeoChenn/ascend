@@ -38,16 +38,21 @@ def _detect_bss_rep_phases(
     """
     Identify bottom and top positions of each Bulgarian split squat rep.
 
-    Strategy: use min(left_knee, right_knee) per frame as the tracking signal.
-    The front leg is always more bent, so the minimum reliably tracks it without
-    needing to know which leg is working before we start.
+    Two separate signals are needed because the rear leg behaves differently
+    at the top vs bottom:
+      - Bottom detection: min(left, right) — the front (working) leg is always
+        more bent at the bottom, so the minimum reliably finds the deepest point.
+      - Top detection: max(left, right) — at the top the front knee extends to
+        ~155°, but the rear knee stays bent at ~110° (foot still on the bench).
+        min(L,R) would give ~110° at the top, never crossing 150°, so no tops
+        would be detected. max(L,R) gives the front knee's ~155°, which does.
 
     Returns:
         {
           "reps": [(bottom_frame_idx, top_frame_idx), ...],
           "left_angles":    [float, ...],   # raw, one per frame
           "right_angles":   [float, ...],   # raw, one per frame
-          "working_angles": [float, ...]    # smoothed min(left, right) per frame
+          "working_angles": [float, ...]    # smoothed min(left, right) — used for depth check
         }
     Falls back to [(0, last_frame)] if no reps are detected.
     """
@@ -60,20 +65,25 @@ def _detect_bss_rep_phases(
         for f in landmarks_per_frame
     ]
 
-    working_raw = [min(l, r) for l, r in zip(left_angles, right_angles)]
-    smoothed = _smooth_signal(working_raw, window=11)
+    # Separate signals for bottom (min = working/front knee) and top (max = front knee)
+    min_smoothed = _smooth_signal(
+        [min(l, r) for l, r in zip(left_angles, right_angles)], window=11
+    )
+    max_smoothed = _smooth_signal(
+        [max(l, r) for l, r in zip(left_angles, right_angles)], window=11
+    )
 
     bottom_indices: list[int] = []
     top_indices: list[int] = []
 
-    for i in range(1, len(smoothed) - 1):
-        is_local_min = smoothed[i] < smoothed[i - 1] and smoothed[i] < smoothed[i + 1]
-        is_local_max = smoothed[i] > smoothed[i - 1] and smoothed[i] > smoothed[i + 1]
+    for i in range(1, len(min_smoothed) - 1):
+        is_local_min = min_smoothed[i] < min_smoothed[i - 1] and min_smoothed[i] < min_smoothed[i + 1]
+        is_local_max = max_smoothed[i] > max_smoothed[i - 1] and max_smoothed[i] > max_smoothed[i + 1]
 
         # BSS allows slightly less depth than a back squat (105° threshold vs 100°)
-        if is_local_min and smoothed[i] < 105:
+        if is_local_min and min_smoothed[i] < 105:
             bottom_indices.append(i)
-        if is_local_max and smoothed[i] > 150:
+        if is_local_max and max_smoothed[i] > 150:
             top_indices.append(i)
 
     all_events: list[tuple[int, str]] = sorted(
@@ -100,7 +110,7 @@ def _detect_bss_rep_phases(
         "reps": reps,
         "left_angles": left_angles,
         "right_angles": right_angles,
-        "working_angles": smoothed,
+        "working_angles": min_smoothed,
     }
 
 

@@ -138,60 +138,6 @@ def _check_working_arm_depth(
     }
 
 
-def _check_assisting_arm_extension(
-    left_elbow_angles: list[float],
-    right_elbow_angles: list[float],
-    bottom_frame_indices: list[int],
-) -> dict:
-    """
-    Check that the assisting arm remains extended at the bottom of each rep.
-
-    The archer push-up requires the non-working arm to extend laterally throughout
-    the movement. The assisting arm is whichever has the larger elbow angle at the
-    bottom frame. Pass: > 140°.
-    """
-    if not bottom_frame_indices:
-        return {
-            "name": "assisting_arm_extension",
-            "passed": False,
-            "message": "Could not detect a clear bottom position in your video.",
-            "measurement": None,
-        }
-
-    assisting_angles: list[float] = []
-
-    for idx in bottom_frame_indices:
-        if idx >= len(left_elbow_angles):
-            continue
-        assisting_angles.append(max(left_elbow_angles[idx], right_elbow_angles[idx]))
-
-    if not assisting_angles:
-        return {
-            "name": "assisting_arm_extension",
-            "passed": False,
-            "message": "Could not assess assisting arm — elbow landmarks not visible at the bottom.",
-            "measurement": None,
-        }
-
-    avg_angle = sum(assisting_angles) / len(assisting_angles)
-    passed = avg_angle > 140
-
-    if passed:
-        message = f"Good assisting arm extension — {avg_angle:.0f}° at the bottom."
-    else:
-        message = (
-            f"Assisting arm was only {avg_angle:.0f}° at the bottom. "
-            "Keep the assisting arm extended out to the side — "
-            "tucking it in removes the unilateral loading that makes the archer push-up effective."
-        )
-
-    return {
-        "name": "assisting_arm_extension",
-        "passed": passed,
-        "message": message,
-        "measurement": round(avg_angle, 1),
-    }
-
 
 def analyse_archer_push_up(
     landmarks_per_frame: list[dict[str, dict[str, float]]],
@@ -248,7 +194,6 @@ def analyse_archer_push_up(
 
     checks = [
         _check_working_arm_depth(left_elbow_angles, right_elbow_angles, bottom_frames),
-        _check_assisting_arm_extension(left_elbow_angles, right_elbow_angles, bottom_frames),
         # Pass smoothed min-elbow to top_extension — at the top both arms are near 180°
         # so the minimum still reads close to 180° and the check is valid.
         _check_pushup_top_extension(min_elbow_smoothed, top_frames),

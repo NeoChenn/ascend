@@ -1150,7 +1150,81 @@ The exercise-specific filming instructions live in Supabase because they vary pe
 
 ---
 
-## Step 12 — Reflection
+## Step 12 — Form analysis accuracy fixes + showcase replacement UX
+*Date: June 2026*
+
+### What I built
+
+**Form analysis accuracy fixes (4 bugs):**
+
+- **One-arm push-up — 0 reps + wrong angle:** MediaPipe places the elbow slightly off-axis on a side-on view of a vertical arm, collapsing the shoulder-elbow-wrist angle to ~96° even when the arm is fully extended. Smoothing (window=11) made it worse — any brief angle peak was averaged away. Fix: abandon elbow angles for rep detection entirely. Instead use wrist-shoulder vertical distance (`wrist_y − shoulder_y`) — this signal has a large range (~0.3 normalised units) that's unaffected by the elbow placement ambiguity. Rep is detected if `signal_range > 0.02`. Separate per-frame reads at the identified top/bottom frames still use elbow angles (with a lowered 110° pass threshold for extension to account for the known side-on limitation).
+
+- **Squat 500 error ("something went wrong"):** `LANDMARK_NAMES` in `pose_service.py` only included indices 11–26, stopping at the knees. The squat, BSS, and pistol analysers call `_compute_knee_angles` which reads `frame["left_ankle"]` / `frame["right_ankle"]` (indices 27/28). These keys were never populated → `KeyError` at runtime. Fix: add indices 27 (`left_ankle`) and 28 (`right_ankle`) to `LANDMARK_NAMES`. This also unblocked all core analysers which needed ankles.
+
+- **Bulgarian split squat — 0 reps detected:** The original signal was `min(left, right)` per frame. At the top of a BSS, the front knee extends to ~155° but the rear knee stays at ~110° (foot still on the bench). So `min(L,R) ≈ 110°` at the top — never crossing the 150° top threshold → no reps. Fix: dual-signal rep detection. Bottom detection uses `min(L,R)` (working/front knee most bent → reliable minimum). Top detection uses `max(L,R)` (front knee extended → always crosses 150° regardless of rear leg). Same pattern applied to pistol squat.
+
+- **Pistol squat — free leg angle false fail:** At the bottom of a pistol squat, the free knee passes behind the working leg from the side-on camera angle. MediaPipe predicts a plausible but wrong position with medium confidence (~90°), bypassing the visibility gate. Fix: skip any frame where the working knee angle < 100° — this is the occlusion zone. The free leg IS visible during descent, ascent, and standing phases (most of the video), so the check still has plenty of frames to evaluate.
+
+**Skeleton overlay — ankle connections:**
+Added `['left_knee', 'left_ankle']` and `['right_knee', 'right_ankle']` to `SKELETON_CONNECTIONS` in `SkillModal.jsx`. The overlay now draws the full lower leg.
+
+**Filming tips additions:**
+Added "Trim" and "Rep quality" tips to the collapsible general filming tips section. "Trim" explains to cut the video to just the movement. "Rep quality" warns that only the first detected rep is evaluated, so the first rep should be the best. Added a demo hint below exercise-specific instructions that points to the demo video for form reference (only shown when a demo video exists and the skill is unlockable).
+
+**Showcase replacement UX:**
+Previously, passing any attempt silently saved/overwrote the showcase video. Now:
+- After any pass (first-time unlock or re-attempt), a prompt appears beneath the feedback cards asking whether to save the video as the showcase.
+- First-time unlock: "Save this as your showcase video?" with "Save" / "Skip" buttons.
+- Re-attempt: "Replace your showcase with this attempt?" with "Lock it in" (track-coloured) / "Keep current" buttons.
+- "Skip" on a first-time unlock still flips the skill to unlocked; the user just has no showcase video stored yet.
+- Removed the "Your unlock attempt" heading above the video — the video speaks for itself.
+- The "Re-attempt" button on unlocked skills was renamed to "Improve".
+
+**Storage re-upload fix:**
+The original approach used `upload(path, file, { upsert: true })` with a fixed path `${userId}/${skillId}.mp4`. Supabase Storage's RLS for the `unlock-videos` bucket grants INSERT to authenticated users but not UPDATE. Upserting an existing file internally issues an UPDATE → silently blocked. Fix: include a timestamp in the path: `${userId}/${skillId}-${Date.now()}.mp4`. Every upload is now always a fresh INSERT. When the user chooses "Lock it in" on a re-attempt, the old file is deleted from storage after the new one is successfully uploaded — the old path is extracted from the stored public URL by splitting on `/unlock-videos/`.
+
+### What broke / what was hard
+
+**Diagnosing the one-arm push-up elbow issue:**
+The first attempt used `max(L,R)` elbow angles, expecting that the working arm (more extended at top) would produce a higher angle. But the smoothing window compressed any brief peaks, and the underlying elbow placement problem meant even the raw signal never reached 160°. The fix required stepping back from elbow angles entirely.
+
+**The storage upsert failure was silent:**
+Supabase Storage returns an error object but the original code only logged it and returned early. The async function exited before updating `unlockedVideoMap`, so the showcase video appeared unchanged. The user saw no error in the UI. Diagnosis required reasoning about Supabase RLS and INSERT vs UPDATE permissions.
+
+**Race condition between async upload and modal close:**
+When the user clicks "Lock it in", `handleShowcaseChoice` fires `onAttemptComplete` (async) without awaiting it, then clears `pendingAttempt`. The async upload takes ~1–2 seconds. If the user closed the modal before the upload finished, `handleClose` would read `pendingUnlockRef.current = null` and skip the video map update. This was discovered as a separate issue from the RLS bug. The storage timestamp fix resolved both problems simultaneously — once uploads succeeded, timing mattered less for the video map update.
+
+### What I learned
+
+**MediaPipe elbow placement on vertical arms from a side camera:**
+When a person stands sideways and their arm extends straight up, the elbow is directly between shoulder and wrist in the real world. But MediaPipe may place it slightly laterally (not perfectly in line), collapsing the three-point angle to ~90–100° instead of ~170°. This is a known limitation: the model was trained on diverse poses and the side-on vertical arm is ambiguous. The lesson: elbow angle is reliable for horizontal arm movements (push-ups, pull-ups) but unreliable for vertical arm movements. When the signal doesn't make sense, think about what the landmark estimator is actually seeing.
+
+**Dual-signal rep detection for asymmetric exercises:**
+Single-signal detection (`min(L,R)` throughout) assumes the signal that detects the bottom also crosses the threshold for the top. For asymmetric exercises (BSS, pistol squat, one-arm variants), one limb is structurally constrained to a non-neutral position throughout the movement, pulling the average or minimum in a way that prevents top detection. The solution is always: use `min(L,R)` for bottom (most bent = working side drives the minimum) and `max(L,R)` for top (most extended = working side drives the maximum). These two signals are built from the same raw angles but look for different things.
+
+**Supabase Storage RLS: INSERT vs UPDATE are separate operations:**
+Supabase Storage policies are defined per HTTP operation — GET, INSERT, UPDATE, DELETE — just like table RLS. A typical "users can upload their own files" policy grants INSERT for paths matching `auth.uid()`. If you upsert (which Supabase internally routes as UPDATE when the file exists), the operation is blocked even though an INSERT would have succeeded. The timestamp-in-path pattern is the standard workaround: every upload is a new object, so it's always an INSERT. Old files are cleaned up explicitly after a successful new upload.
+
+**Deferred commits don't survive race conditions:**
+The `pendingUnlockRef` pattern (store the result in a ref, apply it on modal close) is correct for first-time unlocks because the node animation should play after the modal dismisses. But for re-attempts, it introduces a race: the async upload might not finish before the user closes the modal. The pattern to watch for: any `useRef.current = value` that is read in an event handler that can fire before an awaited async operation completes. For re-attempts, the fix would be to update state directly in the async function rather than via the ref — but this became moot once the RLS bug was fixed, since the timestamp path ensures uploads complete quickly.
+
+### Decisions made
+
+**Wrist-shoulder distance over elbow angle for one-arm push-up rep detection:**
+The distance signal (`wrist_y − shoulder_y`) is geometrically robust: at the top of a push-up the wrist is far below the shoulder (~0.3 units), at the bottom they're much closer. This is true regardless of elbow placement ambiguity. Using the wrong landmark (elbow) for the wrong signal (angle on a vertical arm) was the root cause of two bugs (0 reps, wrong angle). Switching to the right signal fixed both.
+
+**Showcase prompt deferred to user choice, not automatic:**
+Always overwriting on re-attempt was the original behaviour. Always prompting feels more intentional — it respects that the current showcase video might be better than the new one (a good day vs a tired day). For first-time unlocks, the skip option exists because some users might pass a scrappy attempt and want to come back with a cleaner video before committing one to their profile.
+
+**Delete old file after new upload, not before:**
+Deleting first and then uploading means a failure during upload leaves the user with no showcase video at all. Uploading first and then deleting means the worst case (deletion fails) is two copies of the video in storage — harmless. Always operate in the order that leaves data in the best state if the second step fails.
+
+### What's next
+- Film and upload demo videos for skill nodes
+
+---
+
+## Step 13 — Reflection
 <!-- Looking back at the whole project:
 - What are you most proud of technically?
 - What would you do differently?

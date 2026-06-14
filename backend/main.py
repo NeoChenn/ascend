@@ -106,4 +106,13 @@ async def upload(file: UploadFile = File(...), exercise: str = Form(...)):
         feedback = None
         narrative = None
 
+    # For inverted exercises, landmarks were extracted from a vertically-flipped frame
+    # so MediaPipe could see an upright human. The analysis above uses those flipped
+    # coordinates correctly, but the frontend draws the skeleton on the original
+    # (unflipped) video — so we convert y back with y = 1 - y before returning.
+    if exercise in INVERTED_EXERCISES:
+        for frame in pose_data["landmarks_per_frame"]:
+            for joint in frame.values():
+                joint["y"] = 1.0 - joint["y"]
+
     return {"filename": file.filename, **pose_data, "feedback": feedback, "narrative": narrative}

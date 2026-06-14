@@ -63,12 +63,15 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
   - Rep-based (archer push-up): per-side elbow tracking, min() trick for working arm, checks at bottom frame (chest near floor)
   - Static hold (bent arm planche): body horizontal + arms bent (<110°) + 3s streak; returns hold_seconds
   - Wholesale call (straddle planche): calls analyse_straddle_front_lever + renames exercise key — geometry identical from side camera
-  - Wholesale reuse (one-arm push-up): identical to push_up.py, exercise name only differs
+  - Wholesale reuse (one-arm push-up): uses wrist-shoulder vertical distance for rep detection (elbow angle unreliable from side-on view for vertical arm); exercise name only differs from push_up.py otherwise
   - Inverted exercises (handstand, handstand_push_up, handstand_push_up_90): pose_service.py flips the video vertically before MediaPipe (cv2.flip(frame, 0)); model sees upright human → standard coordinate space; main.py dispatches via INVERTED_EXERCISES set
   - Handstand: static hold streak — body_alignment + arm_lockout + 3s simultaneous; per-frame body angle computed inline (shoulder-hip-knee); returns hold_seconds
   - Handstand Push-up: pull-up style rep detection on flipped landmarks (local MAX = extended = lockout, local MIN = flexed = head near floor); reuses _check_bottom_extension + _check_top_flexion + _check_body_alignment
   - 90° Handstand Push-up: same as HSPu + _check_upper_arm_horizontal (abs(shoulder_y − elbow_y) < 0.05 at flexed frame; absolute y-difference is preserved under vertical flip)
 - Legs track form analysis: Squat, Bulgarian Split Squat, Pistol Squat (all with rep detection + form checks)
+  - Bulgarian split squat + pistol squat use dual-signal rep detection: min(L,R) for bottom, max(L,R) for top — avoids the rear/free leg dragging the signal below the top threshold
+  - Pistol squat free leg check skips frames where working knee < 100° (occlusion zone — free knee hides behind working leg at depth)
+  - pose_service.py LANDMARK_NAMES includes ankles (indices 27/28) — required by all legs and core analysers
 - Core track form analysis: Leg Raise, Toes to Bar, L-sit, One-arm Toes to Bar (L-sit is a static hold — pass = ≥3s consecutive hold where all criteria are simultaneously met; 3 diagnostic cards + 1 hold_duration card)
 - Rep counting with smoothed signal (window=11) + de-duplicated phase events to prevent overcounting
 - All dynamic analysers evaluate form on the first detected rep only — prevents multi-rep averaging from failing a user who had a clean first rep
@@ -79,11 +82,12 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
 - Muscle map landing page (interactive SVG at /skill-tree, now labelled "Skill Trees")
 - Track pages at /track/:trackId — column-based skill tree with real Supabase data, locked/unlockable/unlocked states, H-branch SVG connectors
 - SkillNode component (3 visual states, per-skill SVG stick-figure icons, box-shadow glow on unlocked)
-- SkillModal (skill info, collapsible general filming tips, exercise-specific filming instructions, autoplay video previews, upload button)
-- Full upload flow: file picker → uploading state with video preview → MediaPipe skeleton overlay on result → pass/fail verdict → feedback cards
+- SkillModal (skill info, collapsible general filming tips incl. trim/rep-quality emphasis + demo reference hint, exercise-specific filming instructions, autoplay video previews, upload button)
+- Full upload flow: file picker → uploading state with video preview → MediaPipe skeleton overlay on result (knee-to-ankle lines included) → pass/fail verdict → feedback cards
 - Supabase writes on attempt: skill_attempts (always), user_skills + Storage upload (on pass)
+- Showcase replacement prompt after any passing attempt: first-time unlock shows "Save/Skip", re-attempt shows "Lock it in/Keep current"; storage uses timestamped paths (always INSERT, avoids needing UPDATE RLS permission); old file deleted on replace
 - Skill node flips to unlocked immediately after pass (local state + persisted to DB)
-- Reopening an unlocked skill shows the user's own unlock video + option to re-attempt
+- Reopening an unlocked skill shows the user's own unlock video (no label) + "Improve" button to re-attempt
 - Sign-in banner for unauthenticated users (upload still works, results not saved)
 - RPG UI polish: Bebas Neue titles, Rajdhani body font, dot-grid + vignette background, 3-level connector colours, glowing unlocked paths, track switcher on track pages, navbar background
 - Gemini LLM narrative feedback (gracefully degraded — returns null if API unavailable, UI skips the section)

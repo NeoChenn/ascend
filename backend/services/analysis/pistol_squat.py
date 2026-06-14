@@ -36,16 +36,21 @@ def _detect_pistol_rep_phases(
     """
     Identify bottom and top positions of each pistol squat rep.
 
-    A pistol squat requires full knee flexion — the bottom threshold is stricter
-    (< 80°) than for a regular squat (< 100°). We use min(left, right) per frame
-    to track the working leg without needing to know which it is in advance.
+    Two separate signals are used, for the same reason as Bulgarian split squat:
+      - Bottom detection: min(left, right) — the working leg is most bent at the
+        bottom, so the minimum reliably finds the deepest point.
+      - Top detection: max(left, right) — at the top the working leg extends to
+        ~160°. The free leg may hang at ~100–130° between reps, which would drag
+        min(L,R) below 150° and prevent top detection. max(L,R) always picks up
+        the extended working leg regardless of what the free leg does.
 
     Returns:
         {
-          "reps": [(bottom_frame_idx, top_frame_idx), ...],
-          "left_angles":    [float, ...],
-          "right_angles":   [float, ...],
-          "working_angles": [float, ...]   # smoothed
+          "reps":           [(bottom_frame_idx, top_frame_idx), ...],
+          "left_angles":    [float, ...],   # raw, one per frame
+          "right_angles":   [float, ...],   # raw, one per frame
+          "min_angles":     [float, ...]    # smoothed min(L,R) — used for depth check
+          "max_angles":     [float, ...]    # smoothed max(L,R) — used for lockout check
         }
     Falls back to [(0, last_frame)] if no reps are detected.
     """
@@ -58,20 +63,24 @@ def _detect_pistol_rep_phases(
         for f in landmarks_per_frame
     ]
 
-    working_raw = [min(l, r) for l, r in zip(left_angles, right_angles)]
-    smoothed = _smooth_signal(working_raw, window=11)
+    min_smoothed = _smooth_signal(
+        [min(l, r) for l, r in zip(left_angles, right_angles)], window=11
+    )
+    max_smoothed = _smooth_signal(
+        [max(l, r) for l, r in zip(left_angles, right_angles)], window=11
+    )
 
     bottom_indices: list[int] = []
     top_indices: list[int] = []
 
-    for i in range(1, len(smoothed) - 1):
-        is_local_min = smoothed[i] < smoothed[i - 1] and smoothed[i] < smoothed[i + 1]
-        is_local_max = smoothed[i] > smoothed[i - 1] and smoothed[i] > smoothed[i + 1]
+    for i in range(1, len(min_smoothed) - 1):
+        is_local_min = min_smoothed[i] < min_smoothed[i - 1] and min_smoothed[i] < min_smoothed[i + 1]
+        is_local_max = max_smoothed[i] > max_smoothed[i - 1] and max_smoothed[i] > max_smoothed[i + 1]
 
         # Pistol squat requires deep knee flexion — stricter than a regular squat
-        if is_local_min and smoothed[i] < 80:
+        if is_local_min and min_smoothed[i] < 80:
             bottom_indices.append(i)
-        if is_local_max and smoothed[i] > 150:
+        if is_local_max and max_smoothed[i] > 150:
             top_indices.append(i)
 
     all_events: list[tuple[int, str]] = sorted(
@@ -98,12 +107,13 @@ def _detect_pistol_rep_phases(
         "reps": reps,
         "left_angles": left_angles,
         "right_angles": right_angles,
-        "working_angles": smoothed,
+        "min_angles": min_smoothed,
+        "max_angles": max_smoothed,
     }
 
 
 def _check_pistol_depth(
-    working_angles: list[float],
+    min_angles: list[float],
     bottom_frame_indices: list[int],
 ) -> dict:
     """
@@ -120,7 +130,7 @@ def _check_pistol_depth(
             "measurement": None,
         }
 
-    avg_angle = sum(working_angles[i] for i in bottom_frame_indices) / len(bottom_frame_indices)
+    avg_angle = sum(min_angles[i] for i in bottom_frame_indices) / len(bottom_frame_indices)
     passed = avg_angle < 80
 
     if passed:
@@ -140,12 +150,14 @@ def _check_pistol_depth(
 
 
 def _check_pistol_lockout(
-    working_angles: list[float],
+    max_angles: list[float],
     top_frame_indices: list[int],
 ) -> dict:
     """
     Check that the working leg fully extends at the top of each rep.
 
+    Uses max(L,R) angles so the working leg's extension is measured directly,
+    regardless of what the free leg does between reps.
     Standing tall on one leg with a locked knee should produce an angle above 155°.
     """
     if not top_frame_indices:
@@ -156,7 +168,7 @@ def _check_pistol_lockout(
             "measurement": None,
         }
 
-    avg_angle = sum(working_angles[i] for i in top_frame_indices) / len(top_frame_indices)
+    avg_angle = sum(max_angles[i] for i in top_frame_indices) / len(top_frame_indices)
     passed = avg_angle > 155
 
     if passed:
@@ -177,28 +189,39 @@ def _check_pistol_lockout(
 
 def _check_pistol_free_leg(
     landmarks_per_frame: list[dict[str, dict[str, float]]],
-    bottom_frame_indices: list[int],
     working_leg: str,
 ) -> dict:
     """
-    Check that the free leg is extended forward at the bottom of the pistol.
+    Check that the free leg stays extended throughout the movement.
 
-    The free leg must be held straight and elevated in front of the body — if the
-    hip-knee-ankle angle is above 150° the leg is adequately extended. A tucked or
-    dropped free leg (smaller angle) is a common fault that makes the movement
-    easier but disqualifies it as a true pistol squat.
+    Evaluated over all frames where the free leg landmarks are clearly visible
+    AND the working knee is above 100° (not near the bottom of the squat).
+
+    At the deepest point, the free knee passes behind the working leg from the
+    side-on camera angle — MediaPipe predicts a plausible but wrong position
+    with medium confidence, bypassing the visibility gate. Skipping frames where
+    the working knee is below 100° avoids this occlusion zone entirely, and
+    evaluating the free leg during the descent, ascent, and standing phases gives
+    an accurate picture of whether it stayed straight throughout.
     """
     free_leg = "right" if working_leg == "left" else "left"
     hip_key = f"{free_leg}_hip"
     knee_key = f"{free_leg}_knee"
     ankle_key = f"{free_leg}_ankle"
+    work_hip_key = f"{working_leg}_hip"
+    work_knee_key = f"{working_leg}_knee"
+    work_ankle_key = f"{working_leg}_ankle"
 
     angles: list[float] = []
 
-    for idx in bottom_frame_indices:
-        if idx >= len(landmarks_per_frame):
-            continue
-        frame = landmarks_per_frame[idx]
+    for frame in landmarks_per_frame:
+        # Skip the deep zone where the free knee is hidden behind the working leg
+        if all(frame[k]["visibility"] >= 0.5 for k in [work_hip_key, work_knee_key, work_ankle_key]):
+            working_angle = calculate_angle(
+                frame[work_hip_key], frame[work_knee_key], frame[work_ankle_key]
+            )
+            if working_angle < 100:
+                continue
 
         if any(frame[k]["visibility"] < 0.5 for k in [hip_key, knee_key, ankle_key]):
             continue
@@ -208,10 +231,10 @@ def _check_pistol_free_leg(
     if not angles:
         return {
             "name": "free_leg_extension",
-            "passed": False,
+            "passed": True,
             "message": (
-                "Could not assess the free leg — ensure your full body "
-                "is visible from head to toe in the video."
+                "Free leg not clearly visible outside the bottom position — "
+                "check passed by default."
             ),
             "measurement": None,
         }
@@ -269,7 +292,8 @@ def analyse_pistol_squat(
 
     phase_data = _detect_pistol_rep_phases(landmarks_per_frame)
     reps: list[tuple[int, int]] = phase_data["reps"]
-    working_angles: list[float] = phase_data["working_angles"]
+    min_angles: list[float] = phase_data["min_angles"]
+    max_angles: list[float] = phase_data["max_angles"]
 
     first_rep = reps[0]
     bottom_frames = [first_rep[0]]
@@ -279,9 +303,9 @@ def analyse_pistol_squat(
     genuine_reps = len(reps) if reps != [(0, len(landmarks_per_frame) - 1)] else 0
 
     checks = [
-        _check_pistol_depth(working_angles, bottom_frames),
-        _check_pistol_lockout(working_angles, top_frames),
-        _check_pistol_free_leg(landmarks_per_frame, bottom_frames, working_leg),
+        _check_pistol_depth(min_angles, bottom_frames),
+        _check_pistol_lockout(max_angles, top_frames),
+        _check_pistol_free_leg(landmarks_per_frame, working_leg),
     ]
 
     return {

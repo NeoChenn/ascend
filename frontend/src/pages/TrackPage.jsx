@@ -101,18 +101,20 @@ export default function TrackPage() {
     loadTrack()
   }, [trackId, user, label])
 
-  // Called by SkillModal after the backend returns an analysis result.
-  // Writes the attempt to Supabase and, on pass, uploads the video and unlocks the skill.
-  async function handleAttemptComplete(skillId, passed, feedbackChecks, videoFile) {
+  // Called by SkillModal after the user makes a showcase choice (or on fail, immediately).
+  // shouldSaveShowcase: true → upload video + update user_skills; false → just unlock the skill
+  async function handleAttemptComplete(skillId, passed, feedbackChecks, videoFile, shouldSaveShowcase = true) {
     if (!user) return
 
-    if (passed) {
-      // Store the unlock video in the 'unlock-videos' bucket.
-      // Path: <userId>/<skillId>.mp4  — one file per skill per user, overwritten on retry.
-      const path = `${user.id}/${skillId}.mp4`
+    // isReattempt: skill already in unlockedIds (row exists in user_skills)
+    const isReattempt = unlockedIds.has(skillId)
+
+    if (passed && shouldSaveShowcase) {
+      // Timestamp in path → always a fresh INSERT, avoids needing UPDATE permission on the bucket.
+      const path = `${user.id}/${skillId}-${Date.now()}.mp4`
       const { error: storageError } = await supabase.storage
         .from('unlock-videos')
-        .upload(path, videoFile, { upsert: true })
+        .upload(path, videoFile)
 
       if (storageError) {
         console.error('Video upload to storage failed:', storageError)
@@ -121,6 +123,19 @@ export default function TrackPage() {
 
       const { data: urlData } = supabase.storage.from('unlock-videos').getPublicUrl(path)
       const videoUrl = urlData.publicUrl
+
+      // Delete the previous showcase file now that the new one is safely uploaded.
+      // Extract the storage path from the stored public URL (everything after the bucket name).
+      if (isReattempt) {
+        const oldUrl = unlockedVideoMap[skillId]
+        const oldPath = oldUrl?.split('/unlock-videos/')[1]?.split('?')[0]
+        if (oldPath) {
+          const { error: removeError } = await supabase.storage
+            .from('unlock-videos')
+            .remove([oldPath])
+          if (removeError) console.error('Old showcase removal failed:', removeError)
+        }
+      }
 
       const { error: attemptError } = await supabase.from('skill_attempts').insert({
         user_id: user.id,
@@ -132,7 +147,6 @@ export default function TrackPage() {
       })
       if (attemptError) console.error('skill_attempts insert failed:', attemptError)
 
-      // upsert: insert if no row exists, update if one does (user re-attempts after unlock)
       const { error: userSkillError } = await supabase.from('user_skills').upsert(
         {
           user_id: user.id,
@@ -145,10 +159,42 @@ export default function TrackPage() {
       )
       if (userSkillError) console.error('user_skills upsert failed:', userSkillError)
 
-      // Store the unlock for handleClose — state updates are deferred so the node
-      // only flips to unlocked once the modal is dismissed, not while it's still open.
       pendingUnlockRef.current = { skillId, videoUrl }
+
+    } else if (passed && !shouldSaveShowcase) {
+      // User chose to skip saving this video as their showcase.
+      // Still log the attempt; still unlock the skill if this is a first-time pass.
+      const { error: attemptError } = await supabase.from('skill_attempts').insert({
+        user_id: user.id,
+        skill_id: skillId,
+        passed: true,
+        feedback: feedbackChecks,
+        attempted_at: new Date().toISOString(),
+        // video_url omitted — user chose not to save this attempt
+      })
+      if (attemptError) console.error('skill_attempts insert failed:', attemptError)
+
+      if (!isReattempt) {
+        // First-time unlock: create the user_skills row without a video URL.
+        const { error: userSkillError } = await supabase.from('user_skills').upsert(
+          {
+            user_id: user.id,
+            skill_id: skillId,
+            status: 'unlocked',
+            unlocked_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id,skill_id' }
+        )
+        if (userSkillError) console.error('user_skills upsert failed:', userSkillError)
+
+        // Flip the node on close but with no video to display
+        pendingUnlockRef.current = { skillId, videoUrl: null }
+      }
+      // Re-attempt + skip: user_skills already has the correct row and existing video URL.
+      // Nothing to update — the node stays unlocked with the old video.
+
     } else {
+      // Fail path: log the attempt, no skill unlock.
       const { error: attemptError } = await supabase.from('skill_attempts').insert({
         user_id: user.id,
         skill_id: skillId,
@@ -157,7 +203,6 @@ export default function TrackPage() {
         attempted_at: new Date().toISOString(),
       })
       if (attemptError) console.error('skill_attempts insert failed:', attemptError)
-      // No user_skills update on fail — unlockable status is driven by prerequisites, not attempts
     }
   }
 

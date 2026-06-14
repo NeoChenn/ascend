@@ -15,8 +15,8 @@ _MODEL_URL = (
     "pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task"
 )
 
-# The landmark indices we care about for pull-up and push-up analysis.
-# MediaPipe detects 33 points total; we only extract these 10.
+# The landmark indices we care about for form analysis.
+# MediaPipe detects 33 points total; we extract these 12.
 # Full list: https://developers.google.com/mediapipe/solutions/vision/pose_landmarker
 LANDMARK_NAMES: dict[int, str] = {
     11: "left_shoulder",
@@ -29,6 +29,8 @@ LANDMARK_NAMES: dict[int, str] = {
     24: "right_hip",
     25: "left_knee",
     26: "right_knee",
+    27: "left_ankle",
+    28: "right_ankle",
 }
 
 

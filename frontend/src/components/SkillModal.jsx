@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import styles from './SkillModal.module.css'
 
-// Joint pairs to draw as lines. Only the 10 joints the backend extracts are used.
+// Joint pairs to draw as lines. Only the 12 joints the backend extracts are used.
 const SKELETON_CONNECTIONS = [
   ['left_shoulder',  'left_elbow'],
   ['left_elbow',     'left_wrist'],
@@ -13,6 +13,8 @@ const SKELETON_CONNECTIONS = [
   ['left_hip',       'right_hip'],
   ['left_hip',       'left_knee'],
   ['right_hip',      'right_knee'],
+  ['left_knee',      'left_ankle'],
+  ['right_knee',     'right_ankle'],
 ]
 
 // Draws one frame of landmarks onto a canvas.
@@ -64,6 +66,7 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
   const [result, setResult] = useState(null)              // { passed, checks, repCount, landmarks }
   const [videoPreviewUrl, setVideoPreviewUrl] = useState(null)
   const [filmingTipsOpen, setFilmingTipsOpen] = useState(false)
+  const [pendingAttempt, setPendingAttempt] = useState(null)  // { checks, file } — deferred until user picks showcase choice
 
   const fileInputRef = useRef(null)
   const videoRef     = useRef(null)
@@ -74,6 +77,7 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
   useEffect(() => {
     setUploadState('idle')
     setResult(null)
+    setPendingAttempt(null)
   }, [skill?.id])
 
   // Revoke the blob URL when it changes or the component unmounts, to free browser memory
@@ -163,11 +167,22 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
         landmarks:   data.landmarks_per_frame,
       })
       setUploadState('result')
-      onAttemptComplete(skill.id, passed, checks, file)
+      // On pass: defer Supabase writes until the user decides whether to save the showcase video.
+      // On fail: log immediately — no choice needed, nothing to save.
+      if (passed) {
+        setPendingAttempt({ checks, file })
+      } else {
+        onAttemptComplete(skill.id, false, checks, file)
+      }
     } catch (err) {
       console.error('Upload failed:', err)
       setUploadState('error')
     }
+  }
+
+  function handleShowcaseChoice(shouldSave) {
+    onAttemptComplete(skill.id, true, pendingAttempt.checks, pendingAttempt.file, shouldSave)
+    setPendingAttempt(null)
   }
 
   const canUpload = !!skill.analysis_key
@@ -188,10 +203,6 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
         <h2 className={styles.title} style={{ color: trackColor }}>
           {skill.name}
         </h2>
-
-        {skill.description && (
-          <p className={styles.description}>{skill.description}</p>
-        )}
 
         {/* ── Uploading: plain video preview + pulsing text ── */}
         {uploadState === 'uploading' && (
@@ -247,6 +258,32 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
                 </li>
               ))}
             </ul>
+            {/* Showcase choice prompt — only shown on pass, before user decides */}
+            {pendingAttempt && (
+              <div className={styles.showcasePrompt}>
+                <p className={styles.showcasePromptText}>
+                  {skillState === 'unlocked'
+                    ? 'Replace your showcase with this attempt?'
+                    : 'Save this as your showcase video?'}
+                </p>
+                <div className={styles.showcasePromptButtons}>
+                  <button
+                    className={styles.lockInButton}
+                    style={{ backgroundColor: trackColor }}
+                    onClick={() => handleShowcaseChoice(true)}
+                  >
+                    {skillState === 'unlocked' ? 'Lock it in' : 'Save'}
+                  </button>
+                  <button
+                    className={styles.keepCurrentButton}
+                    onClick={() => handleShowcaseChoice(false)}
+                  >
+                    {skillState === 'unlocked' ? 'Keep current' : 'Skip'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {!result.passed && (
               <button className={styles.retryButton} onClick={() => setUploadState('idle')}>
                 Try again
@@ -271,7 +308,6 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
             {/* Unlocked: show the user's own stored video */}
             {skillState === 'unlocked' && unlockVideoUrl && (
               <div className={styles.section}>
-                <h3 className={styles.sectionTitle}>Your unlock attempt</h3>
                 <video
                   src={unlockVideoUrl}
                   autoPlay
@@ -287,7 +323,6 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
             {/* Locked / unlockable: show the developer demo video if one exists */}
             {skillState !== 'unlocked' && skill.demo_video_url && (
               <div className={styles.section}>
-                <h3 className={styles.sectionTitle}>Demo</h3>
                 <video
                   src={skill.demo_video_url}
                   autoPlay
@@ -299,6 +334,10 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
                   style={{ marginBottom: 0 }}
                 />
               </div>
+            )}
+
+            {skill.description && (
+              <p className={styles.description}>{skill.description}</p>
             )}
 
             {/* General filming tips — collapsible, shown when the user can actually attempt */}
@@ -314,10 +353,14 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
                 </button>
                 {filmingTipsOpen && (
                   <ul className={styles.tipsList}>
-                    <li><strong>Background:</strong> Plain wall or simple outdoor setting. Busy backgrounds can confuse MediaPipe's pose detection.</li>
+                    <li><strong>Trim:</strong> Cut your clip to just the movement — no getting into starting position and no stepping away at the end. </li>
+                    <li><strong>Rep quality:</strong> Only your first detected rep is evaluated. If you film multiple reps, lead with your best.</li>
+                    <li><strong>Background:</strong> Plain wall, simple outdoor setting, or portrait mode blur all work. Busy unblurred backgrounds can occasionally confuse pose detection.</li>
                     <li><strong>Lighting:</strong> Even, shadow-free light — daylight or a well-lit room. MediaPipe detects landmarks more reliably with good contrast between you and the background.</li>
-                    <li><strong>Clothes:</strong> Form-fitting and contrasting with the background. Baggy clothing obscures elbows, knees, and hips. Avoid all-black on a dark background or all-white on a light one.</li>
+                    <li><strong>Clothes:</strong> Form-fitting and contrasting with the background. Baggy clothing obscures elbows, knees, and hips. </li>
                     <li><strong>Camera:</strong> Tripod or stable surface. Camera shake can introduce noise into joint tracking and trigger false positives in movement detection.</li>
+                    <li><strong>Angle:</strong> Aim for exactly side-on (90° to your body). A slight diagonal is fine; a large one distorts the angle measurements the analysis relies on.</li>
+                    <li><strong>Distance:</strong> Film from a few steps further back than you think you need, then crop the video in your phone's native editor to zoom in. This is easier than trying to nail the exact camera height for every exercise.</li>
                   </ul>
                 )}
               </div>
@@ -330,6 +373,11 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
                 <p className={styles.instructions}>
                   {skill.filming_instructions ?? 'Film from the side, full body in frame.'}
                 </p>
+                {skillState === 'unlockable' && skill.demo_video_url && (
+                  <p className={styles.demoHint}>
+                    See the demo video above for reference on form and camera angle.
+                  </p>
+                )}
               </div>
             )}
 
@@ -341,14 +389,14 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
               style={{ display: 'none' }}
             />
 
-            {/* Locked: show a disabled button — no upload possible until prerequisites are met */}
-            {skillState === 'locked' ? (
+            {skillState === 'locked' && (
               <button className={styles.uploadButton} disabled>
                 Locked
               </button>
-            ) : (
+            )}
+
+            {skillState === 'unlockable' && (
               <>
-                {/* Warn unauthenticated users — upload still works but nothing is saved */}
                 {!user && canUpload && (
                   <div className={styles.authBanner}>
                     <a href="/login">Sign in</a> to save your progress.
@@ -363,6 +411,24 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
                   {canUpload ? 'Upload attempt' : 'Coming soon'}
                 </button>
               </>
+            )}
+
+            {skillState === 'unlocked' && (
+              <div
+                className={styles.unlockedRow}
+                style={{ borderColor: trackColor, background: `${trackColor}1a` }}
+              >
+                <span className={styles.unlockedLabel} style={{ color: trackColor }}>
+                  Skill Unlocked
+                </span>
+                <button
+                  className={styles.reattemptButton}
+                  style={{ borderColor: trackColor, color: trackColor }}
+                  onClick={() => fileInputRef.current.click()}
+                >
+                  Improve
+                </button>
+              </div>
             )}
           </>
         )}
