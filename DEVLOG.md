@@ -1224,7 +1224,67 @@ Deleting first and then uploading means a failure during upload leaves the user 
 
 ---
 
-## Step 13 — Reflection
+## Step 13 — Side-on camera accuracy (visibility-aware joint averaging + threshold fixes)
+*Date: June 2026*
+
+### What I built
+
+A targeted set of backend accuracy fixes for the pull and core tracks, addressing two distinct failure modes that both stem from filming side-on.
+
+**Visibility-aware averaging for `_compute_elbow_angles`, `_compute_hip_angles`, `_compute_knee_angles` (`_shared.py`):**
+
+All three functions previously computed `(left_angle + right_angle) / 2` for every frame with no visibility check. From a side-on camera, the far arm/leg is partially occluded. MediaPipe still produces a coordinate for it — often by mirroring the visible side — and keeps its visibility score above 0.5. So the old "skip if visibility < 0.5" guard didn't help: the bad estimate passed the gate with a confident-looking score.
+
+New logic: check all three joints on each side. If both sides have all joints ≥ 0.5 visibility, average them. If only one side clears the threshold, use that side alone. If neither clears it (rare, fallback only), use the raw average to avoid a gap in the signal. This mirrors the pattern already used in `_check_body_alignment`, which was written later and got it right.
+
+**`_check_kipping` (`pull_up.py`) and `_check_no_swing` (`leg_raise.py`):**
+
+Both functions check for excessive frame-to-frame position change (shoulder y for kipping, hip y for swinging). The original threshold was 0.03 — single-frame MediaPipe jitter on a controlled, legitimate rep could easily produce a delta above this, triggering a false fail. Two changes:
+1. Apply a 3-frame moving average to the y-signal before computing deltas — this suppresses one-frame spikes without blunting the detection of sustained, fast movement.
+2. Raise the threshold from 0.03 to 0.05.
+
+`_check_no_swing` is imported by `toes_to_bar.py` and `one_arm_toes_to_bar.py`, so the fix covers all three exercises.
+
+**`muscle_up.py` above-bar lockout:** the hip y and wrist y values used to verify the lockout position now use only the visible side(s), same pattern as the shared compute functions.
+
+**`toes_to_bar.py` height check:** the ankle and wrist y-values compared at top frames now use visibility-aware averaging.
+
+### What broke / what was hard
+
+**The visibility score is not an occlusion flag:**
+The initial assumption was that MediaPipe marks occluded joints with low visibility. It doesn't — it marks them with the confidence of its *estimate*, which may still be above 0.5 even when the estimate is wrong. MediaPipe predicts occluded joints by mirroring from the visible side plus its prior on typical human body configurations. The result is a "confident but wrong" coordinate that passes the old visibility gate and corrupts the average. This meant the bug only showed up when actually testing side-on videos — unit tests with synthetic data wouldn't catch it.
+
+**False kipping fails on clean pull-ups:**
+Testing revealed that a controlled, dead-hang pull-up with no momentum was triggering the kipping check. The shoulders move upward throughout the pulling phase — that's just the movement. A 0.03 per-frame delta corresponds to about 22 pixels in a 720p video at 30fps. Normal controlled motion at the top of the pull exceeded this in a single frame. Smoothing the signal first eliminates the jitter spikes; the higher threshold accommodates the genuine speed of controlled movement.
+
+### What I learned
+
+**"Confident but wrong" — why visibility filtering didn't work before:**
+MediaPipe's visibility score answers "how confident is the model that it can see this joint?" not "is this joint actually visible from the camera?" A joint that's occluded behind the body can receive a high confidence score if the model predicts a plausible position based on the rest of the skeleton. The correct approach is to think about camera geometry: in a side-on video, exactly one side's joints will be near-facing (accurate) and one side's will be far-facing (estimated). Testing which side has reliably seen joints — rather than relying on confidence alone — is what visibility-aware averaging achieves.
+
+**The importance of testing with real camera angles:**
+Every analyser was initially tested with synthetic data or front-facing camera angles where both sides were visible. Side-on camera issues only manifest when filming at 90°. For a calisthenics app where side-on is the *required* filming angle for almost every exercise, this was the most important camera case to get right — and it was the last one tested. Lesson: test with the exact filming conditions the app instructs users to use.
+
+**Smoothing before delta vs smoothing before rep detection:**
+The existing smoothing (window=11) is applied to the elbow/knee/hip angle signal for rep detection — it smooths the shape of the wave. The new 3-frame smoothing in `_check_kipping` and `_check_no_swing` is applied to the raw y-coordinate signal before taking frame-to-frame differences. These are different operations: the first smooths for signal shape, the second smooths for rate-of-change. A 3-frame window is intentionally small — it removes single-frame spikes while still detecting a 3+ frame run of fast movement, which is what actual kipping looks like.
+
+### Decisions made
+
+**Fallback to raw average when neither side is visible:**
+Rather than skipping a frame entirely when both sides have low-visibility joints, the functions fall back to the raw average. Skipping frames would create gaps in the signal that could corrupt rep detection (the smoothing and local-extrema finding both assume one value per frame). The fallback is honest: "we can't trust either side, so we average and accept some inaccuracy for this frame." This is rare in practice — at least one side is reliably visible in nearly every frame of a side-on video.
+
+**3-frame window for swing/kipping smoothing, not 11:**
+Using window=11 (the rep detection window) would suppress genuine fast-motion events — a real kipping hip jerk over 5 frames would be averaged away before the delta check. 3 frames removes single-frame jitter while preserving multi-frame events. The goal is different: rep detection needs a smooth wave shape; swing detection needs to preserve sudden real movement.
+
+**Threshold 0.05, not 0.04 or 0.06:**
+0.03 was clearly too strict (false fails on clean reps). 0.05 was chosen based on reasoning about normal controlled velocity: at 30fps, moving the shoulder 3.6% of frame height per frame for 3+ consecutive frames (~108px/s in a 720p video where the person fills 60% of frame height) is the kind of sustained acceleration that indicates momentum use. 0.05 is strict enough to catch real kipping; 0.06 started feeling too lenient in review.
+
+### What's next
+- Film and upload demo videos for skill nodes
+
+---
+
+## Step 14 — Reflection
 <!-- Looking back at the whole project:
 - What are you most proud of technically?
 - What would you do differently?

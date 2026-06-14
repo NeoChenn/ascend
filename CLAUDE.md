@@ -73,6 +73,11 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
   - Pistol squat free leg check skips frames where working knee < 100° (occlusion zone — free knee hides behind working leg at depth)
   - pose_service.py LANDMARK_NAMES includes ankles (indices 27/28) — required by all legs and core analysers
 - Core track form analysis: Leg Raise, Toes to Bar, L-sit, One-arm Toes to Bar (L-sit is a static hold — pass = ≥3s consecutive hold where all criteria are simultaneously met; 3 diagnostic cards + 1 hold_duration card)
+- Side-on camera accuracy fixes across pull and core tracks:
+  - `_compute_elbow_angles`, `_compute_hip_angles`, `_compute_knee_angles` in `_shared.py` now use visibility-aware averaging: use only the side(s) where all three joints have visibility ≥ 0.5; fallback to raw average only when neither side clears the threshold. Previously both sides were blindly averaged — the far (occluded) arm/leg's MediaPipe estimate contaminated the signal with confident-but-wrong coordinates.
+  - `_check_kipping` (pull_up.py) and `_check_no_swing` (leg_raise.py, imported by toes_to_bar.py and one_arm_toes_to_bar.py): apply 3-frame smoothing to shoulder/hip y-signal before computing frame-to-frame deltas; threshold raised from 0.03 → 0.05. Single-frame MediaPipe jitter on a controlled rep was triggering false fails.
+  - `muscle_up.py` above-bar lockout: hip and wrist y-values now use only visible side(s)
+  - `toes_to_bar.py` height check: ankle and wrist y-values at top frames now use visibility-aware averaging
 - Rep counting with smoothed signal (window=11) + de-duplicated phase events to prevent overcounting
 - All dynamic analysers evaluate form on the first detected rep only — prevents multi-rep averaging from failing a user who had a clean first rep
 - Filming instructions updated in Supabase: dynamic skills say "film one clean rep, trim to just that rep"; L-sit says "trim to just your hold"
