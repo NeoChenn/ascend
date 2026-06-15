@@ -130,13 +130,17 @@ def _check_no_swing(
         }
 
     # Smooth before delta to suppress single-frame MediaPipe jitter.
-    # Threshold raised to 0.05 — 0.03 was too strict for controlled movement.
+    # Use 95th-percentile delta rather than max — a single outlier frame (jumping
+    # to grab the bar at the start, or dropping off at the end) would fail a
+    # max-based check on a perfectly controlled rep. Genuine kipping produces
+    # many high-delta frames, so it still fails on the 95th percentile.
     smoothed = _smooth_signal(hip_y_values, window=3)
-    max_delta = max(
+    deltas = sorted(
         abs(smoothed[i] - smoothed[i - 1])
         for i in range(1, len(smoothed))
     )
-    passed = max_delta < 0.05
+    p95 = deltas[int(len(deltas) * 0.95)]
+    passed = p95 < 0.05
 
     if passed:
         message = "No excessive swinging detected — movement looks controlled."
@@ -150,7 +154,7 @@ def _check_no_swing(
         "name": "no_swing",
         "passed": passed,
         "message": message,
-        "measurement": round(max_delta, 4),
+        "measurement": round(p95, 4),
     }
 
 

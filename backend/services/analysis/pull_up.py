@@ -7,6 +7,7 @@ from services.analysis._shared import (
 
 def _detect_pullup_rep_phases(
     landmarks_per_frame: list[dict[str, dict[str, float]]],
+    window: int = 11,
 ) -> dict:
     """
     Identify the bottom and top of each pull-up rep in the video.
@@ -15,6 +16,10 @@ def _detect_pullup_rep_phases(
     - Bottom (arms straight, hanging) → elbow angle is near 180° → local MAX
     - Top (arms bent, chin over bar) → elbow angle is small (~60°) → local MIN
 
+    window: smoothing window size. Default 11 (~0.37 s at 30 fps) suits
+    controlled reps. Pass a smaller value (e.g. 5) for explosive one-rep
+    videos where the full movement is over in under a second.
+
     Returns:
         {
           "reps": [(bottom_frame_idx, top_frame_idx), ...],
@@ -22,9 +27,7 @@ def _detect_pullup_rep_phases(
         }
     Falls back to [(0, last_frame)] if no reps are detected.
     """
-    # Window=11 covers ~0.37 s at 30 fps, removing most landmark jitter while
-    # keeping genuine rep transitions (which take at least 0.5 s) intact.
-    smoothed = _smooth_signal(_compute_elbow_angles(landmarks_per_frame), window=11)
+    smoothed = _smooth_signal(_compute_elbow_angles(landmarks_per_frame), window=window)
 
     bottom_indices: list[int] = []
     top_indices: list[int] = []
@@ -69,13 +72,14 @@ def _detect_pullup_rep_phases(
 def _check_bottom_extension(
     elbow_angles: list[float],
     bottom_frame_indices: list[int],
+    threshold: int = 160,
 ) -> dict:
     """
     Check whether arms are fully extended at the bottom of each rep.
 
-    A fully straight arm has an elbow angle close to 180°. We use 160° as the
-    threshold — anything below that means the athlete is not fully straightening
-    between reps, which reduces range of motion and pulling strength development.
+    A fully straight arm has an elbow angle close to 180°. Default threshold
+    is 160°. Pass a lower value (e.g. 155) for one-arm pull-ups where the
+    single gripping arm reads slightly compressed from a side-on camera.
     """
     if not bottom_frame_indices:
         return {
@@ -86,7 +90,7 @@ def _check_bottom_extension(
         }
 
     avg_angle = sum(elbow_angles[i] for i in bottom_frame_indices) / len(bottom_frame_indices)
-    passed = avg_angle > 160
+    passed = avg_angle > threshold
 
     if passed:
         message = f"Good full extension at the bottom — average elbow angle {avg_angle:.0f}°."
@@ -150,21 +154,23 @@ def _check_kipping(
     """
     Check for kipping — using a hip swing to generate upward momentum.
 
-    Kipping shows up as a sudden large upward jump in shoulder position between
-    consecutive frames. In MediaPipe's coordinate system, y decreases as you
-    move up, so a sudden decrease in shoulder y indicates a fast upward jerk.
+    We track hip y rather than shoulder y. In a strict pull-up the hips rise
+    slowly and gradually; in a kip, the hips oscillate rapidly (backward arch →
+    forward snap) producing sustained large frame-to-frame deltas.
 
-    We smooth the signal with a 3-frame window first to suppress single-frame
-    MediaPipe jitter that could otherwise trigger a false kipping flag on a
-    clean, controlled pull-up. Threshold raised to 0.05 for the same reason.
+    We use the 95th-percentile delta rather than the maximum. A single outlier
+    frame (e.g. jumping to grab the bar at the start, or dropping off at the
+    end) would fail a max-based check even on a perfectly strict rep. Genuine
+    kipping produces many high-delta frames throughout the rep, so it still
+    fails on the 95th percentile.
     """
-    shoulder_y_values: list[float] = []
+    hip_y_values: list[float] = []
 
     for frame in landmarks_per_frame:
-        avg_shoulder_y = (frame["left_shoulder"]["y"] + frame["right_shoulder"]["y"]) / 2
-        shoulder_y_values.append(avg_shoulder_y)
+        avg_hip_y = (frame["left_hip"]["y"] + frame["right_hip"]["y"]) / 2
+        hip_y_values.append(avg_hip_y)
 
-    if len(shoulder_y_values) < 2:
+    if len(hip_y_values) < 2:
         return {
             "name": "kipping",
             "passed": True,
@@ -172,26 +178,27 @@ def _check_kipping(
             "measurement": None,
         }
 
-    smoothed = _smooth_signal(shoulder_y_values, window=3)
-    max_delta = max(
+    smoothed = _smooth_signal(hip_y_values, window=3)
+    deltas = sorted(
         abs(smoothed[i] - smoothed[i - 1])
         for i in range(1, len(smoothed))
     )
-    passed = max_delta < 0.05
+    p95 = deltas[int(len(deltas) * 0.95)]
+    passed = p95 < 0.05
 
     if passed:
         message = "No kipping detected — movement looks controlled."
     else:
         message = (
-            "Possible kipping detected — sudden upward shoulder movement suggests "
-            "you may be using hip swing to generate momentum."
+            "Possible kipping detected — sustained hip swinging suggests "
+            "you may be using momentum to generate the pull."
         )
 
     return {
         "name": "kipping",
         "passed": passed,
         "message": message,
-        "measurement": round(max_delta, 4),
+        "measurement": round(p95, 4),
     }
 
 

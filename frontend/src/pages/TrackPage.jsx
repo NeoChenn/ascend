@@ -164,6 +164,15 @@ export default function TrackPage() {
     } else if (passed && !shouldSaveShowcase) {
       // User chose to skip saving this video as their showcase.
       // Still log the attempt; still unlock the skill if this is a first-time pass.
+
+      // Set pendingUnlockRef BEFORE the first await so that handleClose — which may
+      // be called synchronously right after this function is invoked (when the user
+      // closes the modal without choosing) — can read it before any Supabase awaits
+      // have resolved.
+      if (!isReattempt) {
+        pendingUnlockRef.current = { skillId, videoUrl: null }
+      }
+
       const { error: attemptError } = await supabase.from('skill_attempts').insert({
         user_id: user.id,
         skill_id: skillId,
@@ -186,9 +195,6 @@ export default function TrackPage() {
           { onConflict: 'user_id,skill_id' }
         )
         if (userSkillError) console.error('user_skills upsert failed:', userSkillError)
-
-        // Flip the node on close but with no video to display
-        pendingUnlockRef.current = { skillId, videoUrl: null }
       }
       // Re-attempt + skip: user_skills already has the correct row and existing video URL.
       // Nothing to update — the node stays unlocked with the old video.

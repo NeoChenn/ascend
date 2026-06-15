@@ -29,7 +29,10 @@ def _check_lsit_hip_angle(hip_angles: list[float]) -> dict:
         }
 
     avg_angle = sum(hip_angles) / len(hip_angles)
-    passed = avg_angle < 100
+    # 120° rather than 100°: the shoulder→hip→ankle angle reads slightly high when
+    # the foot naturally droops at the ankle, inflating the measurement even when
+    # the legs are genuinely close to horizontal.
+    passed = avg_angle < 120
 
     if passed:
         message = f"Good L-sit position — average leg height was {avg_angle:.0f}° (legs horizontal or above)."
@@ -99,7 +102,10 @@ def _check_lsit_arm_lockout(elbow_angles: list[float]) -> dict:
         }
 
     avg_angle = sum(elbow_angles) / len(elbow_angles)
-    passed = avg_angle > 155
+    # 140° rather than 155°: in a floor/parallette L-sit the body leans slightly
+    # forward to counterbalance the legs, making a geometrically "straight" arm
+    # impossible to achieve from a side-on camera view.
+    passed = avg_angle > 140
 
     if passed:
         message = f"Good arm lockout — average elbow angle was {avg_angle:.0f}°."
@@ -158,11 +164,13 @@ def analyse_lsit(landmarks_per_frame: list[dict[str, dict[str, float]]]) -> dict
     elbow_angles = _compute_elbow_angles(landmarks_per_frame)
 
     # Per-frame: are ALL three criteria met simultaneously?
-    # Hip < 100° = legs at or above horizontal.
-    # Knee > 155° = legs straight, not tucked.
-    # Elbow > 155° = arms locked out.
+    # These thresholds are deliberately looser than the check-function thresholds
+    # because individual frames are noisier than the averages the checks report.
+    # A user whose average reads 117° hip / 143° elbow would have many individual
+    # frames outside the tighter bounds, breaking the streak despite good form.
+    # Hip < 130°, Knee > 150°, Elbow > 130°.
     per_frame_pass = [
-        h < 100 and k > 155 and e > 155
+        h < 130 and k > 150 and e > 130
         for h, k, e in zip(hip_angles, knee_angles, elbow_angles)
     ]
 

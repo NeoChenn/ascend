@@ -1,4 +1,4 @@
-from services.analysis._shared import _compute_elbow_angles
+from services.analysis._shared import _compute_elbow_angles, _smooth_signal
 
 
 def analyse_muscle_up(
@@ -45,6 +45,21 @@ def analyse_muscle_up(
         }
 
     elbow_angles = _compute_elbow_angles(landmarks_per_frame)
+    smoothed = _smooth_signal(elbow_angles, window=11)
+
+    # Rep count: each local minimum below 70° in the smoothed signal is one
+    # muscle-up transition (pull through the bar). This mirrors how pull-up rep
+    # detection works — each dip of the elbow angle curve = one rep.
+    # Fallback: if smoothing flattens a short video with no clear local minimum
+    # but the raw signal still dropped below 70°, count it as 1 rep.
+    rep_count = sum(
+        1 for i in range(1, len(smoothed) - 1)
+        if smoothed[i] < smoothed[i - 1]
+        and smoothed[i] < smoothed[i + 1]
+        and smoothed[i] < 70
+    )
+    if rep_count == 0 and min(elbow_angles) < 70:
+        rep_count = 1
 
     # Check 1: Pull depth — minimum elbow angle across all frames.
     # A muscle-up requires pulling the elbows past the bar, which demands a much
@@ -62,30 +77,16 @@ def analyse_muscle_up(
             "Pull your elbows past the bar (aim below 70°) to reach the transition point."
         )
 
-    # Check 2: Above-bar lockout — scan all frames for one where arms are locked AND
-    # hips are above wrist level (bar height). In MediaPipe coords y increases downward,
-    # so hip_y < wrist_y means the hips are above the bar.
-    lockout_found = False
-
-    for i, frame in enumerate(landmarks_per_frame):
-        # Use only the visible side(s) for both hip and wrist y-values.
-        # From side-on, the far hand/hip may have a less accurate y estimate.
-        hip_ys = [
-            frame[k]["y"] for k in ["left_hip", "right_hip"]
-            if frame[k]["visibility"] >= 0.5
-        ] or [(frame["left_hip"]["y"] + frame["right_hip"]["y"]) / 2]
-
-        wrist_ys = [
-            frame[k]["y"] for k in ["left_wrist", "right_wrist"]
-            if frame[k]["visibility"] >= 0.5
-        ] or [(frame["left_wrist"]["y"] + frame["right_wrist"]["y"]) / 2]
-
-        avg_hip_y   = sum(hip_ys) / len(hip_ys)
-        avg_wrist_y = sum(wrist_ys) / len(wrist_ys)
-
-        if elbow_angles[i] > 150 and avg_hip_y < avg_wrist_y:
-            lockout_found = True
-            break
+    # Check 2: Above-bar lockout — verify that after the deepest pull (elbows < 70°),
+    # the elbows subsequently return to lockout (> 150°). This is a temporal sequence
+    # check: pull_depth already confirms the transition height was reached; if the
+    # elbows then lock out, the dip was completed. No wrist/hip positional landmark
+    # is needed — those are unreliable when the hand is gripping a bar.
+    deepest_pull_frame = elbow_angles.index(min(elbow_angles))
+    lockout_found = any(
+        elbow_angles[i] > 150
+        for i in range(deepest_pull_frame, len(elbow_angles))
+    )
 
     if lockout_found:
         lockout_message = "Locked out above the bar with straight arms — muscle-up completed."
@@ -112,6 +113,6 @@ def analyse_muscle_up(
 
     return {
         "exercise": "muscle_up",
-        "rep_count": 0,
+        "rep_count": rep_count,
         "checks": checks,
     }

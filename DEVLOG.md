@@ -1284,7 +1284,103 @@ Using window=11 (the rep detection window) would suppress genuine fast-motion ev
 
 ---
 
-## Step 14 — Reflection
+## Step 14 — Demo recording calibration: analysis threshold fixes + unlock animation
+*Date: June 2026*
+
+### What happened
+
+First session filming real unlock videos in my home gym — a free-standing rack where the uprights sit behind the bar from a side-on angle, plus indoor lighting rather than an open background. Several analysers that passed synthetic tests had calibration issues on real footage. Most failures fell into two categories: **wrong signal** (using the wrong landmark or statistic) and **thresholds calibrated for ideal conditions**.
+
+---
+
+**`_check_kipping` rewrite (pull_up.py):**
+
+Step 13 added 3-frame smoothing and raised the threshold from 0.03 to 0.05, but still used shoulder y and checked the *maximum* delta. Both were wrong:
+
+- Shoulders move upward continuously throughout a pull-up — that's the movement itself. What oscillates during kipping is the **hip** — the hip jerk forward and back generates the momentum. Shoulder y on a strict rep was triggering false fails.
+- `max()` fails on a single outlier frame (e.g. jumping to grab the bar at the start of the video).
+
+Fix: track hip y, compute the **95th-percentile delta** from the sorted list of per-frame deltas, pass if p95 < 0.05. Genuine kipping produces many large-delta frames so p95 still catches it; a single noisy frame no longer fails the whole check.
+
+**`_check_no_swing` (leg_raise.py) — same p95 fix:**
+
+This function (imported by toes_to_bar.py and one_arm_toes_to_bar.py) already tracked hip y correctly but also used `max()`. Applied the same p95 pattern.
+
+**`_detect_pullup_rep_phases` — parametrized `window`:**
+
+A 1-second explosive pull-up video (~30 frames) with window=11 puts 37% of the signal inside the smoothing kernel — any brief angle peak gets averaged away and no local extrema are found. Added `window: int = 11` parameter so `explosive_pull_up.py` can pass `window=5`.
+
+**`explosive_pull_up.py` — chest-to-bar tolerance:**
+
+The chest-to-bar check compares average wrist y to average shoulder y. MediaPipe places the wrist landmark at the wrist *bone*, not the fingertips — on a bar grip it sits slightly above the bar. Changed the threshold from `avg_gap >= 0` to `avg_gap >= -0.05`.
+
+**`muscle_up.py` — temporal sequence lockout:**
+
+The above-bar lockout originally compared hip y to wrist y (hips should be above bar = above wrist level). This failed regardless of tolerance because the wrist landmark on a bar grip sits at the back of the wrist, not at bar level — the exact offset depends on grip style and wrist flexion. No positional threshold could reliably solve this.
+
+Fix: abandon positional comparison. Use a **temporal sequence**: find the frame with the deepest pull (minimum elbow angle), then scan everything after that frame for any frame where elbow angle > 150°. If the elbows get deep then fully extend, a lockout occurred — no landmark-position assumption required. Also added `rep_count` to the return dict (was always hardcoded 0).
+
+**`lsit.py` — two-tier threshold calibration:**
+
+All three check cards showed green (averages passing) but the hold duration was always under a second. The mismatch: averages smooth across many frames and suppress noise; the per-frame streak runs on raw landmark values which are much noisier frame-to-frame. The streak condition needs to be noticeably looser than the check-function thresholds.
+
+Changes:
+- Average hip angle: `< 100°` → `< 120°` (ankle droop inflates the shoulder-hip-ankle reading)
+- Average elbow: `> 155°` → `> 140°` (forward lean for counterbalance makes full lockout impossible)
+- Per-frame streak: `h < 100 and k > 155 and e > 155` → `h < 130 and k > 150 and e > 130`
+
+**Parametrized shared functions:**
+
+`_check_leg_straightness`, `_check_body_alignment`, `_check_bottom_extension` all received a `threshold: int` parameter with the existing value as the default. Existing call sites unchanged; callers needing different thresholds pass explicit values.
+
+- `toes_to_bar.py` + `one_arm_toes_to_bar.py`: `_check_leg_straightness(threshold=125)` — hamstrings maximally stretched at full toes-to-bar, some natural knee bend unavoidable
+- `one_arm_pull_up.py`: `_check_bottom_extension(threshold=155)` (single arm reads slightly compressed from side camera) + `_check_body_alignment(threshold=145)` (body rotation toward gripping arm reads as hip sag from side camera)
+
+---
+
+**Frontend: unlock animation fixes:**
+
+Two bugs in the showcase-save flow:
+
+1. **Modal close without choosing → skill not unlocked.** If the user dismissed the modal without tapping Save or Skip, `handleShowcaseChoice` was never called and the skill stayed in limbo. Fix: `handleClose` wrapper in `SkillModal.jsx` calls `handleShowcaseChoice(false)` (implicit skip) before `onClose()` whenever `pendingAttempt` exists.
+
+2. **Unlock animation not firing after implicit skip.** `TrackPage`'s `pendingUnlockRef` was set inside the skip path *after* an `await` call. `onClose` fired synchronously — before the `await` resolved — and read `pendingUnlockRef.current === null`. Fix: moved `pendingUnlockRef.current = { skillId, videoUrl: null }` to before the first `await`. JavaScript functions run synchronously until their first `await`, so setting the ref before yielding guarantees the synchronous caller sees it.
+
+### What I learned
+
+**Positional landmark checks are fragile near equipment:**
+
+When a joint is in contact with an object (wrist gripping a bar, foot on a bench), MediaPipe's landmark estimate is offset from the actual contact point by the object's geometry. Temporal sequence checks — "event A happened before event B in the signal" — avoid this entirely. They ask a question about signal shape over time, not about absolute landmark position at a frame.
+
+**Two-tier threshold design for static holds:**
+
+Whenever you run an "average across all frames" check and a "per-frame" check on the same signal, the per-frame threshold must be noticeably looser. Averages suppress noise by construction. If you set both thresholds equal, a single jitter frame that reads just outside the average threshold will break the streak even though the user's hold was genuinely good. A rough rule: start the per-frame threshold 10–20° looser and tighten from there.
+
+**p95 for sustained-movement detection:**
+
+`max()` of frame-to-frame deltas fails on a single outlier frame. The 95th percentile asks "was there *sustained* large movement?" — it ignores the noisiest 5% of frames while still failing on genuine kipping (which produces many consecutive high-delta frames). The pattern: sort deltas, take `deltas[int(len * 0.95)]`.
+
+**Smoothing window vs video length:**
+
+At 30fps, window=11 covers 0.37 seconds. On a 30-frame video (1 second), that's 37% of the signal inside the kernel — peaks flatten and rep detection fails. Parametrize smoothing window when the video length varies significantly between callers.
+
+### Decisions made
+
+**Temporal sequence for muscle-up lockout:**
+
+Positional checks kept failing regardless of tolerance. Switching to "deepest pull then arm extension" encodes the same knowledge a coach has — "did they pull deep and then lock out?" — without any assumption about where the bar is in the frame.
+
+**Per-frame streak thresholds 10–30° looser than average thresholds:**
+
+L-sit: average hip `< 120°` vs streak gate `< 130°`; average elbow `> 140°` vs streak gate `> 130°`. The gaps absorb frame-level noise without relaxing the quality standard as assessed by the diagnostic cards.
+
+### What's next
+
+- Finish filming and uploading demo videos for all skill nodes
+
+---
+
+## Step 15 — Reflection
 <!-- Looking back at the whole project:
 - What are you most proud of technically?
 - What would you do differently?

@@ -58,9 +58,9 @@ def analyse_one_arm_pull_up(
     genuine_reps = len(reps) if reps != [(0, len(landmarks_per_frame) - 1)] else 0
 
     checks = [
-        _check_bottom_extension(elbow_angles, bottom_frames),
+        _check_bottom_extension(elbow_angles, bottom_frames, threshold=155),
         _check_top_flexion(elbow_angles, top_frames),
-        _check_body_alignment(landmarks_per_frame),
+        _check_body_alignment(landmarks_per_frame, threshold=145),
         _check_kipping(landmarks_per_frame),
     ]
 

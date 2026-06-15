@@ -47,7 +47,10 @@ def _check_chest_to_bar(
         }
 
     avg_gap = sum(gaps) / len(gaps)
-    passed = avg_gap >= 0
+    # Tolerance of 0.05: the shoulder *joint* sits slightly below the sternum,
+    # so when the chest genuinely touches the bar the shoulder landmark can
+    # still read a small negative gap.
+    passed = avg_gap >= -0.05
 
     if passed:
         message = "Chest reached bar level — great explosive height."
@@ -103,7 +106,8 @@ def analyse_explosive_pull_up(
             ],
         }
 
-    phase_data = _detect_pullup_rep_phases(landmarks_per_frame)
+    # Smaller window for a short explosive rep — default 11 flattens a 1-second video
+    phase_data = _detect_pullup_rep_phases(landmarks_per_frame, window=5)
     reps: list[tuple[int, int]] = phase_data["reps"]
     elbow_angles: list[float] = phase_data["elbow_angles"]
 

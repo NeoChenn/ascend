@@ -88,13 +88,16 @@ def _compute_elbow_angles(
 
 def _check_body_alignment(
     landmarks_per_frame: list[dict[str, dict[str, float]]],
+    threshold: int = 160,
 ) -> dict:
     """
     Check whether the body stays in a straight line throughout the movement.
 
     We measure the shoulder→hip→knee angle. A perfectly straight body gives 180°.
     Hip sag (the body bending forward at the hips) produces a smaller angle.
-    We threshold at 160° — anything below that is noticeable sagging.
+    Default threshold is 160°. Pass a lower value (e.g. 145) for one-arm
+    pull-ups where the body naturally rotates toward the gripping arm — from a
+    side camera this rotation reads as apparent hip sag even on a straight body.
 
     We check each side independently — when filming from the side, the far-side
     joints are occluded and will have low visibility. Requiring ALL six joints
@@ -136,7 +139,7 @@ def _check_body_alignment(
         }
 
     avg_angle = sum(valid_angles) / len(valid_angles)
-    passed = avg_angle > 160
+    passed = avg_angle > threshold
 
     if passed:
         message = f"Good body alignment — hips stayed relatively straight (avg {avg_angle:.0f}°)."
@@ -306,13 +309,18 @@ def _compute_hip_angles(
 def _check_leg_straightness(
     landmarks_per_frame: list[dict[str, dict[str, float]]],
     top_frame_indices: list[int],
+    threshold: int = 150,
 ) -> dict:
     """
     Check that knees remain extended at the top of a leg raise movement.
 
     Bending the knees at the top is a common cheat that reduces the demand on
-    the hip flexors. A knee angle above 150° indicates the legs are adequately
-    straight. Averaged across both sides at the detected top frames.
+    the hip flexors. Averaged across both sides at the detected top frames.
+
+    threshold: minimum knee angle to pass. Default 150° suits a leg raise
+    where full extension is achievable. Pass a lower value (e.g. 125) for
+    toes-to-bar where the hamstrings are maximally stretched at full extension
+    and some natural bend is unavoidable.
     """
     knee_angles: list[float] = []
 
@@ -340,7 +348,7 @@ def _check_leg_straightness(
         }
 
     avg_angle = sum(knee_angles) / len(knee_angles)
-    passed = avg_angle > 150
+    passed = avg_angle > threshold
 
     if passed:
         message = f"Good leg straightness — knees were {avg_angle:.0f}° at the top."

@@ -125,9 +125,18 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
 
   if (!skill) return null
 
+  function handleClose() {
+    // If the user closes while a passed attempt is pending (showcase prompt visible),
+    // treat it as "skip" — the skill still unlocks, the video just isn't saved.
+    if (pendingAttempt) {
+      handleShowcaseChoice(false)
+    }
+    onClose()
+  }
+
   function handleBackdropClick(event) {
     if (uploadState === 'uploading') return
-    if (event.target === event.currentTarget) onClose()
+    if (event.target === event.currentTarget) handleClose()
   }
 
   function handleFileSelect(event) {
@@ -193,7 +202,7 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
 
         <button
           className={styles.closeButton}
-          onClick={onClose}
+          onClick={handleClose}
           disabled={uploadState === 'uploading'}
           aria-label="Close"
         >

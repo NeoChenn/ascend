@@ -75,9 +75,21 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
 - Core track form analysis: Leg Raise, Toes to Bar, L-sit, One-arm Toes to Bar (L-sit is a static hold — pass = ≥3s consecutive hold where all criteria are simultaneously met; 3 diagnostic cards + 1 hold_duration card)
 - Side-on camera accuracy fixes across pull and core tracks:
   - `_compute_elbow_angles`, `_compute_hip_angles`, `_compute_knee_angles` in `_shared.py` now use visibility-aware averaging: use only the side(s) where all three joints have visibility ≥ 0.5; fallback to raw average only when neither side clears the threshold. Previously both sides were blindly averaged — the far (occluded) arm/leg's MediaPipe estimate contaminated the signal with confident-but-wrong coordinates.
-  - `_check_kipping` (pull_up.py) and `_check_no_swing` (leg_raise.py, imported by toes_to_bar.py and one_arm_toes_to_bar.py): apply 3-frame smoothing to shoulder/hip y-signal before computing frame-to-frame deltas; threshold raised from 0.03 → 0.05. Single-frame MediaPipe jitter on a controlled rep was triggering false fails.
+  - `_check_kipping` (pull_up.py): tracks hip y (not shoulder y — hips oscillate in a kip, not shoulders), applies 3-frame smoothing before computing deltas, uses 95th-percentile delta (not max — max fires on a single outlier frame); threshold 0.05. `_check_no_swing` (leg_raise.py, imported by toes_to_bar.py and one_arm_toes_to_bar.py) applies the same p95 pattern.
   - `muscle_up.py` above-bar lockout: hip and wrist y-values now use only visible side(s)
   - `toes_to_bar.py` height check: ankle and wrist y-values at top frames now use visibility-aware averaging
+- Analysis calibration during demo recording (Step 14):
+  - `_detect_pullup_rep_phases` (pull_up.py): `window` parametrized (default 11); `explosive_pull_up.py` passes `window=5` for short single-rep videos where window=11 flattens the signal
+  - `_check_bottom_extension` (pull_up.py): `threshold` parametrized (default 160)
+  - `explosive_pull_up.py`: chest-to-bar tolerance `avg_gap >= -0.05` (wrist landmark sits slightly above bar level)
+  - `muscle_up.py`: above-bar lockout uses temporal sequence — scan frames after deepest pull (min elbow angle) for any frame with elbow > 150°; avoids wrist landmark position assumptions. `rep_count` now returned in result dict.
+  - `lsit.py`: average hip angle `< 120°` (ankle droop inflates reading), average elbow `> 140°` (forward lean for counterbalance); per-frame streak condition `h<130 and k>150 and e>130` — raw frames noisier than per-check averages so streak gate is looser than average thresholds
+  - `_check_leg_straightness`, `_check_body_alignment`, `_check_bottom_extension` in `_shared.py`: all parametrized with a `threshold` argument; existing call sites use the default, callers needing different behaviour pass explicit values
+  - `toes_to_bar.py` + `one_arm_toes_to_bar.py`: `_check_leg_straightness(threshold=125)` — hamstrings maximally stretched at full toes-to-bar, some natural knee bend unavoidable
+  - `one_arm_pull_up.py`: `_check_bottom_extension(threshold=155)` + `_check_body_alignment(threshold=145)` — single arm reads slightly compressed; body rotation toward gripping arm reads as hip sag from side camera
+- Frontend unlock animation fixes:
+  - `SkillModal.jsx`: `handleClose` wrapper calls `handleShowcaseChoice(false)` (implicit skip) before `onClose()` when `pendingAttempt` exists — closing without choosing now unlocks the skill instead of leaving it in limbo
+  - `TrackPage.jsx`: `pendingUnlockRef.current` set before the first `await` in the skip path — fixes race condition where `onClose` read the ref synchronously before the async callback had a chance to set it
 - Rep counting with smoothed signal (window=11) + de-duplicated phase events to prevent overcounting
 - All dynamic analysers evaluate form on the first detected rep only — prevents multi-rep averaging from failing a user who had a clean first rep
 - Filming instructions updated in Supabase: dynamic skills say "film one clean rep, trim to just that rep"; L-sit says "trim to just your hold"

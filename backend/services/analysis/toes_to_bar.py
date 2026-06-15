@@ -174,7 +174,7 @@ def analyse_toes_to_bar(landmarks_per_frame: list[dict[str, dict[str, float]]]) 
 
     checks = [
         _check_tob_height(landmarks_per_frame, top_frames),
-        _check_leg_straightness(landmarks_per_frame, top_frames),
+        _check_leg_straightness(landmarks_per_frame, top_frames, threshold=125),
         _check_no_swing(landmarks_per_frame),
     ]
 
