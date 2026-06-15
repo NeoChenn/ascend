@@ -7,7 +7,7 @@ An RPG-style calisthenics progression app. Unlock skills by proving your form �
 1. Browse the skill tree across four tracks: **Push**, **Pull**, **Core**, **Legs**
 2. Click an unlockable skill to see what it requires and how to film yourself
 3. Upload a video attempt — the backend runs pose estimation on every frame and checks your form against that skill's specific criteria
-4. **Pass** → skill unlocks, your video is saved to your profile permanently
+4. **Pass** → skill unlocks, your attempt becomes the showcase video on the node — proof it's been conquered. Re-attempt anytime to replace it with a cleaner rep.
 5. **Fail** → structured feedback cards show exactly what to fix, try again
 
 ## Features
@@ -17,8 +17,9 @@ An RPG-style calisthenics progression app. Unlock skills by proving your form �
 - **Per-skill SVG icons** — 21 hand-drawn stick-figure icons, one per skill
 - **Skeleton overlay** — after analysis, the MediaPipe landmark skeleton is drawn over your video in real time as it plays back
 - **LLM coaching feedback** — Gemini generates a short natural-language paragraph summarising the attempt alongside the structured pass/fail cards
+- **Showcase replacement** — after any pass, you're prompted to save or skip the video. Come back and beat yourself to claim a cleaner showcase; the old file is deleted automatically.
 - **User accounts** — Supabase auth; all progress and videos are tied to your account across sessions
-- **Demo videos** — each skill node can show a demo clip before you attempt it
+- **Demo videos** — each skill node shows a demo clip before you attempt it
 
 ## Tech stack
 

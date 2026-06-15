@@ -339,6 +339,7 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
                   loop
                   muted
                   playsInline
+                  onVolumeChange={(e) => { if (!e.target.muted) e.target.muted = true }}
                   className={styles.videoPreview}
                   style={{ marginBottom: 0 }}
                 />
@@ -368,7 +369,7 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
                     <li><strong>Lighting:</strong> Even, shadow-free light — daylight or a well-lit room. MediaPipe detects landmarks more reliably with good contrast between you and the background.</li>
                     <li><strong>Clothes:</strong> Form-fitting and contrasting with the background. Baggy clothing obscures elbows, knees, and hips. </li>
                     <li><strong>Camera:</strong> Tripod or stable surface. Camera shake can introduce noise into joint tracking and trigger false positives in movement detection.</li>
-                    <li><strong>Angle:</strong> Aim for exactly side-on (90° to your body). A slight diagonal is fine; a large one distorts the angle measurements the analysis relies on.</li>
+                    <li><strong>Angle:</strong> Aim for exactly side-on (90° to your body) — this gives the most accurate angle measurements and is what the analysis is calibrated for. If gym equipment is blocking specific joints in frame, a slight diagonal (10–20°) can clear the obstruction; otherwise stay as close to side-on as possible.</li>
                     <li><strong>Distance:</strong> Film from a few steps further back than you think you need, then crop the video in your phone's native editor to zoom in. This is easier than trying to nail the exact camera height for every exercise.</li>
                   </ul>
                 )}
