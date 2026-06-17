@@ -38,7 +38,7 @@ def _check_handstand_arm_lockout(elbow_angles: list[float]) -> dict:
     """
     Check that the arms remain straight throughout the handstand hold.
 
-    In a clean handstand, elbows are locked to ~180°. An average above 155°
+    In a clean handstand, elbows are locked to ~180°. An average above 150°
     indicates adequate lockout. Bent elbows collapse the support and waste energy.
     """
     if not elbow_angles:
@@ -50,7 +50,7 @@ def _check_handstand_arm_lockout(elbow_angles: list[float]) -> dict:
         }
 
     avg_angle = sum(elbow_angles) / len(elbow_angles)
-    passed = avg_angle > 155
+    passed = avg_angle > 150
 
     if passed:
         message = f"Good arm lockout — average elbow angle was {avg_angle:.0f}°."
@@ -116,9 +116,9 @@ def analyse_handstand(
 
     # Per-frame: both criteria must pass simultaneously.
     # body > 155° = shoulder-hip-knee acceptably straight (allows slight natural arch).
-    # elbow > 155° = arms locked out.
+    # elbow > 150° = arms locked out.
     per_frame_pass = [
-        body > 155 and elbow > 155
+        body > 155 and elbow > 150
         for body, elbow in zip(body_angles, elbow_angles)
     ]
 
