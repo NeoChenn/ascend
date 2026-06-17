@@ -2,6 +2,10 @@
 
 An RPG-style calisthenics progression app. Unlock skills by proving your form — upload a video, pass the automated analysis, earn the node.
 
+## Demo
+
+[![Ascend demo](https://img.youtube.com/vi/AfWIMEkXu8M/maxresdefault.jpg)](https://youtu.be/AfWIMEkXu8M)
+
 ## How it works
 
 1. Browse the skill tree across four tracks: **Push**, **Pull**, **Core**, **Legs**
