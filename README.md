@@ -16,7 +16,7 @@ An RPG-style calisthenics progression app. Unlock skills by proving your form �
 - **Pose-based form analysis** — MediaPipe extracts joint coordinates from every video frame; angle calculations check bottom extension, top flexion, body alignment, and kipping for each exercise
 - **Per-skill SVG icons** — 21 hand-drawn stick-figure icons, one per skill
 - **Skeleton overlay** — after analysis, the MediaPipe landmark skeleton is drawn over your video in real time as it plays back
-- **LLM coaching feedback** — Gemini generates a short natural-language paragraph summarising the attempt alongside the structured pass/fail cards
+- **LLM coaching feedback** — Claude generates a short natural-language paragraph summarising the attempt alongside the structured pass/fail cards
 - **Showcase replacement** — after any pass, you're prompted to save or skip the video. Come back and beat yourself to claim a cleaner showcase; the old file is deleted automatically.
 - **User accounts** — Supabase auth; all progress and videos are tied to your account across sessions
 - **Demo videos** — each skill node shows a demo clip before you attempt it
@@ -28,7 +28,7 @@ An RPG-style calisthenics progression app. Unlock skills by proving your form �
 | Frontend | React (Vite) |
 | Backend | Python + FastAPI |
 | Pose estimation | MediaPipe |
-| LLM feedback | Gemini API |
+| LLM feedback | Claude API (Haiku 4.5) |
 | Database + Auth | Supabase (PostgreSQL + Storage) |
 | Frontend deployment | Vercel |
 | Backend deployment | Railway |
@@ -62,7 +62,7 @@ Create `backend/.env`:
 ```
 SUPABASE_URL=your_supabase_url
 SUPABASE_ANON_KEY=your_supabase_anon_key
-GEMINI_API_KEY=your_gemini_api_key
+ANTHROPIC_API_KEY=your_anthropic_api_key
 FRONTEND_URL=http://localhost:5173
 ```
 

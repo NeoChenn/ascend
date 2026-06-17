@@ -1,16 +1,16 @@
 import os
 
+import anthropic
 from dotenv import load_dotenv
-from google import genai
 
 load_dotenv()
 
-_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 
 def generate_narrative_feedback(exercise: str, checks: list[dict]) -> str | None:
     """
-    Ask Gemini to turn the structured form-check results into a short coaching paragraph.
+    Ask Claude to turn the structured form-check results into a short coaching paragraph.
 
     Args:
         exercise: e.g. "pull_up" or "push_up"
@@ -21,7 +21,7 @@ def generate_narrative_feedback(exercise: str, checks: list[dict]) -> str | None
         A 2–3 sentence coaching string, or None if the API call fails (so the
         rest of the response is never blocked by an LLM error).
     """
-    # Format each check as a bullet so Gemini can read them clearly
+    # Format each check as a bullet so Claude can read them clearly
     check_lines = "\n".join(
         f"- {'PASS' if c['passed'] else 'FAIL'}: {c['message']}"
         for c in checks
@@ -40,14 +40,15 @@ def generate_narrative_feedback(exercise: str, checks: list[dict]) -> str | None
     )
 
     try:
-        # gemini-2.0-flash-lite: free tier, 30 RPM / 1 500 req/day
-        response = _client.models.generate_content(
-            model="gemini-2.0-flash-lite",
-            contents=prompt,
+        response = _client.messages.create(
+            model="claude-haiku-4-5",
+            max_tokens=256,
+            messages=[{"role": "user", "content": prompt}],
         )
-        return response.text.strip()
+        # response.content is a list of ContentBlock objects; index 0 is the text block
+        return response.content[0].text.strip()
     except Exception as exc:
         # Narrative is a nice-to-have. A failed API call should never break the
         # upload response — the structured check cards are still returned.
-        print(f"Gemini API call failed: {exc}")
+        print(f"Claude API call failed: {exc}")
         return None

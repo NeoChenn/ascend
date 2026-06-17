@@ -47,7 +47,7 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
 | Database + Auth | Supabase (PostgreSQL) |
 | Frontend deployment | Vercel |
 | Backend deployment | Railway |
-| LLM feedback | Gemini API (google-genai) |
+| LLM feedback | Claude API (claude-haiku-4-5, anthropic SDK) |
 
 ## Current build status
 
@@ -107,7 +107,7 @@ This is a personal project built for my CV as a first-year CS student at UCL. It
 - Reopening an unlocked skill shows the user's own unlock video (no label) + "Improve" button to re-attempt
 - Sign-in banner for unauthenticated users (upload still works, results not saved)
 - RPG UI polish: Bebas Neue titles, Rajdhani body font, dot-grid + vignette background, 3-level connector colours, glowing unlocked paths, track switcher on track pages, navbar background
-- Gemini LLM narrative feedback (gracefully degraded — returns null if API unavailable, UI skips the section)
+- Claude LLM narrative feedback via claude-haiku-4-5 (gracefully degraded — returns null if API unavailable, UI skips the section)
 - Deployment prep: hardcoded localhost URLs replaced with env vars, CORS origin configurable via `FRONTEND_URL`, `vercel.json` SPA rewrite rule added
 
 **Next:**

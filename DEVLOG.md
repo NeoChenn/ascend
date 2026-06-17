@@ -501,14 +501,14 @@ The demo video section only renders when `skill.demo_video_url` is truthy. No sp
 
 ---
 
-## Step 8c — Gemini LLM narrative feedback (stretch goal)
+## Step 8c — Claude LLM narrative feedback (stretch goal)
 *Date: June 2026*
 
 ### What I built
-- `backend/services/llm_service.py` — calls the Gemini API with the structured form check results and returns a 2–3 sentence coaching paragraph. The prompt formats each check as a PASS/FAIL bullet and asks for plain-prose feedback. Wrapped in `try/except` so a failed API call never breaks the upload response — returns `None` on any error.
+- `backend/services/llm_service.py` — calls the Claude API (`claude-haiku-4-5`) with the structured form check results and returns a 2–3 sentence coaching paragraph. The prompt formats each check as a PASS/FAIL bullet and asks for plain-prose feedback. Wrapped in `try/except` so a failed API call never breaks the upload response — returns `None` on any error.
 - Updated `backend/main.py` to call `generate_narrative_feedback` after analysis and add a `narrative` field to the response JSON.
 - Updated `SkillModal` to display the narrative in an italic box between the verdict banner and the check cards. The box only renders when `result.narrative` is non-null — the UI degrades gracefully when the API is unavailable.
-- Added `google-genai` to `requirements.txt`.
+- Added `anthropic` to `requirements.txt`.
 
 ### What broke / what was hard
 
@@ -540,18 +540,18 @@ A 429 error with a `limit` value in the error body means two different things de
 The second case is an account configuration issue, not a transient error. The `try/except` in `llm_service.py` handles both the same way — the narrative is just omitted — which is the right call: an LLM enhancement should never block the core feature.
 
 **Graceful degradation as a real design principle:**
-The `try/except` returning `None` means the entire upload flow (video analysis, skeleton overlay, pass/fail verdict, Supabase writes) continues to work even if Gemini is completely unavailable. The frontend `{result.narrative && <p>...</p>}` pattern means nothing renders when `narrative` is null — no empty boxes, no error messages, no broken layout. This was the right architecture decision: the LLM is an enhancement, not a dependency.
+The `try/except` returning `None` means the entire upload flow (video analysis, skeleton overlay, pass/fail verdict, Supabase writes) continues to work even if the Claude API is completely unavailable. The frontend `{result.narrative && <p>...</p>}` pattern means nothing renders when `narrative` is null — no empty boxes, no error messages, no broken layout. This was the right architecture decision: the LLM is an enhancement, not a dependency.
 
 ### Decisions made
 
 **`generate_narrative_feedback` in its own service file:**
-Mirrors the existing pattern: `pose_service.py` owns MediaPipe, `analysis/` owns angle logic, `llm_service.py` owns Gemini. `main.py` stays as a thin router that composes the services. This makes the LLM call easy to swap out (different provider, different model) without touching the route handler.
+Mirrors the existing pattern: `pose_service.py` owns MediaPipe, `analysis/` owns angle logic, `llm_service.py` owns the Claude API. `main.py` stays as a thin router that composes the services. This makes the LLM call easy to swap out (different provider, different model) without touching the route handler.
 
 **Narrative positioned between verdict and check cards:**
 The verdict banner gives the instant "pass/fail" read. The narrative adds context. The check cards give the specifics. This ordering goes from high-level to detailed — a natural reading order. Putting the narrative after the cards would bury it below a long list.
 
 **Current status:**
-The feature is implemented and the code is correct — the `try/except` means the app works with or without a working Gemini key. The quota issue is account-level: the Google account has `limit: 0` on free tier Gemini quotas. Options to enable it: add prepaid credits in AI Studio (~$1 covers thousands of demo attempts), or use a fresh Google account with no billing history.
+The feature is implemented and the code is correct — the `try/except` means the app works with or without a working Claude API key. Switched from Gemini to the Anthropic SDK (`claude-haiku-4-5`) to avoid the Google free-tier quota issues encountered during development.
 
 ### What's next
 - Deployment: frontend to Vercel, backend to Railway or Render
@@ -656,7 +656,7 @@ The two uses side by side:
 
 | Use | Example | Why env var |
 |---|---|---|
-| Keep secrets private | `SUPABASE_ANON_KEY`, `GEMINI_API_KEY` | Never commit credentials to Git |
+| Keep secrets private | `SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY` | Never commit credentials to Git |
 | Configure per environment | `VITE_API_URL`, `FRONTEND_URL` | Same code, different values on laptop vs production |
 
 `VITE_API_URL` is not a secret — anyone can open DevTools and see the URL. The reason it's an env var is purely so you don't have to change source code when deploying. Hardcoding the Railway URL directly would break local dev; hardcoding localhost would break production.

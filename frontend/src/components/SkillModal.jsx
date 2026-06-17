@@ -251,7 +251,7 @@ export default function SkillModal({ skill, skillState, trackColor, user, unlock
                 : `${result.repCount} rep${result.repCount !== 1 ? 's' : ''} detected`}
             </p>
 
-            {/* LLM coaching paragraph — omitted if the Gemini API call failed */}
+            {/* LLM coaching paragraph — omitted if the Claude API call failed */}
             {result.narrative && (
               <p className={styles.narrative}>{result.narrative}</p>
             )}
